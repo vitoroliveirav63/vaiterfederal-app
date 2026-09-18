@@ -93,7 +93,8 @@ function escapeHtml(s) {
 // ---------------------------------------------------------------------------
 onAuthStateChanged(auth, async (user) => {
   if (!user) {
-    if (pararDeOuvirEventos) { pararDeOuvirEventos(); pararDeOuvirEventos = null; }
+    if (pararDeOuvirPrazos) { pararDeOuvirPrazos(); pararDeOuvirPrazos = null; }
+    if (pararDeOuvirConfirmacoes) { pararDeOuvirConfirmacoes(); pararDeOuvirConfirmacoes = null; }
     if (pararDeOuvirFeed) { pararDeOuvirFeed(); pararDeOuvirFeed = null; }
     mostrarTela("login");
     return;
@@ -197,14 +198,17 @@ document.getElementById("btn-logout-config").addEventListener("click", () => sig
 // ---------------------------------------------------------------------------
 // Entrar no app: liga a navegação lateral e os "escutadores" do Firestore
 // ---------------------------------------------------------------------------
-let pararDeOuvirEventos = null;
+let pararDeOuvirPrazos = null;
+let pararDeOuvirConfirmacoes = null;
 let pararDeOuvirFeed = null;
 let navegacaoConfigurada = false;
 let chipsConfigurados = false;
+let chipsPrazosConfigurados = false;
 
 function entrarNoApp() {
   mostrarTela("app");
-  ouvirEventos();
+  ouvirPrazos();
+  ouvirConfirmacoes();
   ouvirFeed();
   mostrarPagina("feed");
 
@@ -300,7 +304,6 @@ function renderizarFeed() {
         const recolhido = corpo.classList.toggle("recolhido");
         botaoVerMais.textContent = recolhido ? "Ver mais" : "Ver menos";
       });
-      // Começa mostrando fechado; clique alterna. Ajusta o texto certo já de saída.
       botaoVerMais.textContent = "Ver mais";
     }
 
@@ -318,9 +321,9 @@ function ouvirFeed() {
 
   if (!chipsConfigurados) {
     chipsConfigurados = true;
-    document.querySelectorAll(".chip").forEach((chip) => {
+    document.querySelectorAll("#pagina-feed .chip").forEach((chip) => {
       chip.addEventListener("click", () => {
-        document.querySelectorAll(".chip").forEach((c) => c.classList.remove("chip-ativo"));
+        document.querySelectorAll("#pagina-feed .chip").forEach((c) => c.classList.remove("chip-ativo"));
         chip.classList.add("chip-ativo");
         filtroFeedAtual = chip.dataset.filtro;
         renderizarFeed();
@@ -330,50 +333,132 @@ function ouvirFeed() {
 }
 
 // ---------------------------------------------------------------------------
-// Prazos (eventos pessoais)
+// Prazos — a lista é global (tudo que aparece no calendário da UFC e do IFCE,
+// mesmo o que não é do seu processo). O que é seu: a marcação de "já
+// providenciei isso", guardada em usuarios/{uid}/confirmacoes.
 // ---------------------------------------------------------------------------
-function ouvirEventos() {
-  const user = auth.currentUser;
-  if (!user) return;
-  if (pararDeOuvirEventos) pararDeOuvirEventos();
+let todosOsPrazos = [];
+let prazosConfirmados = new Set();
+let filtroPrazoAtual = "proximos";
 
-  const q = query(collection(db, "usuarios", user.uid, "eventos"), orderBy("dataPrevista", "asc"));
-  pararDeOuvirEventos = onSnapshot(q, (snap) => {
-    const lista = document.getElementById("lista-eventos");
-    lista.innerHTML = "";
-    if (snap.empty) {
-      lista.innerHTML =
-        '<p class="vazio">Nenhum prazo cadastrado ainda. O robô adiciona os prazos automaticamente conforme o calendário do Sisu/UFC.</p>';
-      return;
-    }
-    snap.forEach((docSnap) => {
-      const ev = docSnap.data();
-      const data = ev.dataPrevista?.toDate ? ev.dataPrevista.toDate() : null;
-      const cartao = document.createElement("div");
-      cartao.className = "cartao-evento";
-      cartao.innerHTML = `
-        <div class="cartao-topo">
-          <strong>${escapeHtml(ev.titulo || "Prazo")}</strong>
-          <span class="etiqueta">${escapeHtml(ev.tipo || "")}</span>
-        </div>
-        <div class="cartao-data">${data ? data.toLocaleDateString("pt-BR") : "Data a definir"}</div>
-        ${
-          ev.confirmado
-            ? '<div class="confirmado">✓ Você já confirmou</div>'
-            : `<button class="botao-secundario botao-confirmar" data-id="${docSnap.id}">Já providenciei isso</button>`
-        }
-      `;
-      lista.appendChild(cartao);
-    });
-    lista.querySelectorAll(".botao-confirmar").forEach((btn) => {
-      btn.addEventListener("click", async () => {
-        const u = auth.currentUser;
-        if (!u) return;
-        btn.disabled = true;
-        await updateDoc(doc(db, "usuarios", u.uid, "eventos", btn.dataset.id), { confirmado: true });
+const UM_DIA = 24 * 60 * 60 * 1000;
+
+function inicioDoDia(data) {
+  const d = new Date(data);
+  d.setHours(0, 0, 0, 0);
+  return d.getTime();
+}
+
+function situacaoDoPrazo(quando) {
+  const hoje = inicioDoDia(new Date());
+  const dia = inicioDoDia(quando);
+  const dias = Math.round((dia - hoje) / UM_DIA);
+  if (dias < 0) return { estado: "passou", dias, texto: dias === -1 ? "Foi ontem" : `Passou há ${Math.abs(dias)} dias` };
+  if (dias === 0) return { estado: "hoje", dias, texto: "É hoje" };
+  if (dias === 1) return { estado: "perto", dias, texto: "É amanhã" };
+  if (dias <= 15) return { estado: "perto", dias, texto: `Faltam ${dias} dias` };
+  return { estado: "longe", dias, texto: `Faltam ${dias} dias` };
+}
+
+function renderizarPrazos() {
+  const lista = document.getElementById("lista-eventos");
+  if (!lista) return;
+
+  const hoje = inicioDoDia(new Date());
+  let itens = todosOsPrazos.filter((p) => p.quando);
+
+  if (filtroPrazoAtual === "proximos") {
+    itens = itens.filter((p) => inicioDoDia(p.quando) >= hoje).sort((a, b) => a.quando - b.quando);
+  } else if (filtroPrazoAtual === "passados") {
+    itens = itens.filter((p) => inicioDoDia(p.quando) < hoje).sort((a, b) => b.quando - a.quando);
+  } else {
+    itens = itens.sort((a, b) => a.quando - b.quando);
+  }
+
+  lista.innerHTML = "";
+  if (itens.length === 0) {
+    lista.innerHTML =
+      '<p class="vazio">Nada aqui ainda. O robô lê as páginas da UFC e do IFCE de hora em hora e coloca nesta lista toda data que encontrar — chamada regular, lista de espera, suplentes, matrícula e documentação.</p>';
+    return;
+  }
+
+  itens.forEach((p) => {
+    const sit = situacaoDoPrazo(p.quando);
+    const novo = p.criadoEm?.toDate && Date.now() - p.criadoEm.toDate().getTime() < 2 * UM_DIA;
+    const confirmado = prazosConfirmados.has(p.id);
+    const dataFormatada = p.quando.toLocaleDateString("pt-BR", { timeZone: "UTC" });
+
+    const cartao = document.createElement("article");
+    cartao.className = "cartao-evento";
+    cartao.innerHTML = `
+      <div class="cartao-topo-noticia">
+        <span class="etiqueta etiqueta-fonte-${escapeHtml(p.fonte || "")}">${escapeHtml(p.fonte || "")}</span>
+        <span class="etiqueta">${escapeHtml(p.categoria || "Calendário")}</span>
+        <span class="etiqueta etiqueta-${sit.estado}">${escapeHtml(sit.texto)}</span>
+        ${novo ? '<span class="etiqueta etiqueta-novo">Novo</span>' : ""}
+      </div>
+      <div class="cartao-topo"><strong>${escapeHtml(dataFormatada)}</strong></div>
+      <div class="cartao-corpo">${escapeHtml(p.descricao || "")}</div>
+      <div class="cartao-rodape">
+        <span class="cartao-data">${escapeHtml(p.fonteTitulo || "")}</span>
+        ${p.link ? `<a href="${escapeHtml(p.link)}" target="_blank" rel="noopener">Ver página →</a>` : ""}
+      </div>
+      ${
+        confirmado
+          ? '<div class="confirmado">✓ Você marcou como providenciado</div>'
+          : `<button class="botao-secundario botao-confirmar" data-id="${escapeHtml(p.id)}">Já providenciei isso</button>`
+      }
+    `;
+    lista.appendChild(cartao);
+  });
+
+  lista.querySelectorAll(".botao-confirmar").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const u = auth.currentUser;
+      if (!u) return;
+      btn.disabled = true;
+      await setDoc(doc(db, "usuarios", u.uid, "confirmacoes", btn.dataset.id), {
+        confirmadoEm: serverTimestamp(),
       });
     });
   });
+}
+
+function ouvirPrazos() {
+  if (pararDeOuvirPrazos) pararDeOuvirPrazos();
+  const q = query(collection(db, "prazos"), orderBy("data", "asc"), limit(400));
+  pararDeOuvirPrazos = onSnapshot(q, (snap) => {
+    todosOsPrazos = snap.docs.map((d) => {
+      const dados = d.data();
+      return { id: d.id, ...dados, quando: dados.data?.toDate ? dados.data.toDate() : null };
+    });
+    renderizarPrazos();
+  });
+
+  if (!chipsPrazosConfigurados) {
+    chipsPrazosConfigurados = true;
+    document.querySelectorAll(".chip-prazo").forEach((chip) => {
+      chip.addEventListener("click", () => {
+        document.querySelectorAll(".chip-prazo").forEach((c) => c.classList.remove("chip-ativo"));
+        chip.classList.add("chip-ativo");
+        filtroPrazoAtual = chip.dataset.prazoFiltro;
+        renderizarPrazos();
+      });
+    });
+  }
+}
+
+function ouvirConfirmacoes() {
+  const user = auth.currentUser;
+  if (!user) return;
+  if (pararDeOuvirConfirmacoes) pararDeOuvirConfirmacoes();
+  pararDeOuvirConfirmacoes = onSnapshot(
+    collection(db, "usuarios", user.uid, "confirmacoes"),
+    (snap) => {
+      prazosConfirmados = new Set(snap.docs.map((d) => d.id));
+      renderizarPrazos();
+    }
+  );
 }
 
 // ---------------------------------------------------------------------------
