@@ -23,23 +23,34 @@
     --vermelho: #f87171;
     --borda: #334155;
     --raio: 14px;
+    --largura-lateral: 240px;
+    --altura-tabs: 62px;
   }
   * { box-sizing: border-box; }
-  body {
+  html, body {
     margin: 0;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
     background: var(--fundo);
     color: var(--texto);
     min-height: 100vh;
   }
-  .tela {
+  img { max-width: 100%; display: block; }
+
+  /* Utilitário universal de esconder — !important pra nunca perder pra
+     nenhuma outra regra e nunca mais "empilhar" telas na tela. */
+  .oculto { display: none !important; }
+
+  /* ------------------------------------------------------------------ */
+  /* Telas cheias (login, cadastro, confirmar e-mail, carregando)        */
+  /* ------------------------------------------------------------------ */
+  .tela-cheia {
     max-width: 460px;
     margin: 0 auto;
     padding: 24px 20px 40px;
     min-height: 100vh;
   }
   @media (min-width: 820px) {
-    .tela { max-width: 620px; padding: 48px 32px 60px; }
+    .tela-cheia { max-width: 620px; padding: 48px 32px 60px; }
     .grade-duas-colunas { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
   }
   h1 { font-size: 1.5rem; margin: 0 0 4px; }
@@ -118,26 +129,186 @@
     font-size: 0.88rem;
     margin-top: 16px;
   }
-  .cabecalho-app {
+  .carregando-caixa {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    color: var(--texto-suave);
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Painel principal (depois de logado): barra lateral/tabs + conteúdo  */
+  /* ------------------------------------------------------------------ */
+  #tela-app {
+    min-height: 100vh;
+    padding-bottom: var(--altura-tabs);
+  }
+  @media (min-width: 820px) {
+    #tela-app {
+      display: flex;
+      padding-bottom: 0;
+    }
+  }
+
+  .barra-lateral {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    height: var(--altura-tabs);
+    display: flex;
+    background: var(--superficie);
+    border-top: 1px solid var(--borda);
+    z-index: 10;
+  }
+  .barra-lateral button {
+    flex: 1;
+    background: none;
+    border: none;
+    color: var(--texto-suave);
+    font-size: 0.68rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    cursor: pointer;
+    padding: 4px;
+  }
+  .barra-lateral button .icone-nav { font-size: 1.25rem; }
+  .barra-lateral button.nav-ativo { color: #60a5fa; }
+  .barra-lateral .nav-sair { margin-left: auto; }
+
+  @media (min-width: 820px) {
+    .barra-lateral {
+      position: sticky;
+      top: 0;
+      left: auto;
+      width: var(--largura-lateral);
+      height: 100vh;
+      flex-direction: column;
+      border-top: none;
+      border-right: 1px solid var(--borda);
+      padding: 24px 12px;
+      gap: 4px;
+      flex-shrink: 0;
+    }
+    .barra-lateral .marca {
+      font-weight: 700;
+      font-size: 1.05rem;
+      padding: 0 10px 20px;
+    }
+    .barra-lateral button {
+      flex-direction: row;
+      justify-content: flex-start;
+      gap: 12px;
+      font-size: 0.92rem;
+      padding: 11px 12px;
+      border-radius: 10px;
+      color: var(--texto);
+    }
+    .barra-lateral button.nav-ativo { background: var(--superficie-2); color: #60a5fa; }
+    .barra-lateral .nav-sair { margin-left: 0; margin-top: auto; color: var(--texto-suave); }
+  }
+  .marca { display: none; }
+  @media (min-width: 820px) { .marca { display: block; } }
+
+  .conteudo-principal {
+    flex: 1;
+    min-width: 0;
+    padding: 20px 16px 32px;
+  }
+  @media (min-width: 820px) {
+    .conteudo-principal { padding: 32px 40px 48px; max-width: 880px; }
+  }
+
+  .pagina { display: none; }
+  .pagina.ativa { display: block; }
+
+  .cabecalho-pagina {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-bottom: 24px;
+    margin-bottom: 18px;
+    gap: 10px;
   }
-  .cabecalho-app h1 { margin: 0; font-size: 1.2rem; }
-  .navegacao {
-    display: flex;
-    gap: 8px;
-  }
-  .navegacao button {
+  .cabecalho-pagina h1 { margin: 0; font-size: 1.25rem; }
+
+  /* Chips de categoria (feed) */
+  .chips { display: flex; gap: 8px; margin-bottom: 18px; flex-wrap: wrap; }
+  .chip {
     background: var(--superficie);
     border: 1px solid var(--borda);
-    color: var(--texto);
-    padding: 8px 10px;
-    border-radius: 10px;
+    color: var(--texto-suave);
+    padding: 7px 14px;
+    border-radius: 999px;
     font-size: 0.82rem;
     cursor: pointer;
   }
+  .chip.chip-ativo { background: var(--azul); border-color: var(--azul); color: white; }
+
+  /* Cartões do feed */
+  .cartao-noticia {
+    background: var(--superficie);
+    border: 1px solid var(--borda);
+    border-radius: var(--raio);
+    padding: 16px;
+    margin-bottom: 14px;
+  }
+  .cartao-topo-noticia {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+    flex-wrap: wrap;
+  }
+  .etiqueta {
+    font-size: 0.72rem;
+    color: var(--texto-suave);
+    background: var(--superficie-2);
+    padding: 3px 9px;
+    border-radius: 999px;
+    white-space: nowrap;
+  }
+  .etiqueta-fonte-UFC { background: rgba(37, 99, 235, 0.22); color: #93c5fd; }
+  .etiqueta-fonte-IFCE { background: rgba(34, 197, 94, 0.18); color: #86efac; }
+  .etiqueta-novo { background: rgba(248, 113, 113, 0.18); color: #fca5a5; }
+  .cartao-noticia h3 { margin: 0 0 8px; font-size: 1.05rem; }
+  .cartao-imagem { border-radius: 10px; overflow: hidden; margin-bottom: 10px; max-height: 260px; }
+  .cartao-imagem img { width: 100%; object-fit: cover; }
+  .cartao-corpo {
+    color: #cbd5e1;
+    font-size: 0.92rem;
+    line-height: 1.5;
+    white-space: pre-wrap;
+  }
+  .cartao-corpo.recolhido {
+    max-height: 4.6em;
+    overflow: hidden;
+    position: relative;
+  }
+  .botao-ver-mais {
+    background: none;
+    border: none;
+    color: #60a5fa;
+    font-size: 0.85rem;
+    cursor: pointer;
+    padding: 6px 0 0;
+  }
+  .lista-anexos { margin: 10px 0 0; padding: 0; list-style: none; font-size: 0.85rem; }
+  .lista-anexos li { margin-bottom: 4px; }
+  .lista-anexos a { color: #60a5fa; }
+  .cartao-rodape {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 12px;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .cartao-rodape a { color: #60a5fa; font-size: 0.82rem; text-decoration: none; }
+  .cartao-data { color: var(--texto-suave); font-size: 0.78rem; }
+
+  /* Cartões de prazos (mantidos da versão anterior) */
   .cartao-evento {
     background: var(--superficie);
     border: 1px solid var(--borda);
@@ -151,23 +322,9 @@
     align-items: baseline;
     gap: 8px;
   }
-  .etiqueta {
-    font-size: 0.72rem;
-    color: var(--texto-suave);
-    background: var(--superficie-2);
-    padding: 3px 8px;
-    border-radius: 999px;
-    white-space: nowrap;
-  }
-  .cartao-data { color: var(--texto-suave); font-size: 0.85rem; margin: 6px 0 10px; }
   .confirmado { color: #86efac; font-size: 0.88rem; }
   .vazio { color: var(--texto-suave); text-align: center; padding: 40px 10px; }
-  .rodape-fixo {
-    display: flex;
-    gap: 10px;
-    margin-top: 28px;
-  }
-  .rodape-fixo button { flex: 1; }
+
   .toggle-linha {
     display: flex;
     align-items: center;
@@ -177,26 +334,19 @@
   }
   .toggle-linha input[type="checkbox"] { width: auto; }
   .info-conta { color: var(--texto-suave); font-size: 0.85rem; margin-bottom: 20px; }
-  .carregando-caixa {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 100vh;
-    color: var(--texto-suave);
-  }
 </style>
 </head>
 <body>
 
 <!-- Carregando -->
-<section id="view-carregando" class="tela carregando-caixa">
+<section id="tela-carregando" class="tela-cheia carregando-caixa">
   <p>Carregando…</p>
 </section>
 
 <!-- Login -->
-<section id="view-login" class="tela" hidden>
+<section id="tela-login" class="tela-cheia oculto">
   <h1>Vai ter federal, sim!</h1>
-  <p class="subtitulo">Prazos do Enem, Sisu e da UFC, tudo num lugar só.</p>
+  <p class="subtitulo">Prazos e notícias do Enem, Sisu, UFC e IFCE, tudo num lugar só.</p>
   <h2>Entrar</h2>
   <form id="form-login">
     <label for="login-email">E-mail</label>
@@ -212,7 +362,7 @@
 </section>
 
 <!-- Cadastro -->
-<section id="view-cadastro" class="tela" hidden>
+<section id="tela-cadastro" class="tela-cheia oculto">
   <h1>Criar conta</h1>
   <p class="subtitulo">E-mail e senha juntos — sem código, sem complicação.</p>
   <form id="form-cadastro">
@@ -229,7 +379,7 @@
 </section>
 
 <!-- Confirmar e-mail -->
-<section id="view-verificar-email" class="tela" hidden>
+<section id="tela-verificar-email" class="tela-cheia oculto">
   <h1>Confirme seu e-mail</h1>
   <p class="subtitulo">
     Mandamos um link de confirmação para <strong id="verificar-email-endereco"></strong>.
@@ -245,104 +395,124 @@
   <div id="erro-verificar" class="aviso" hidden></div>
 </section>
 
-<!-- Home -->
-<section id="view-home" class="tela" hidden>
-  <div class="cabecalho-app">
-    <h1>Seus prazos</h1>
-    <div class="navegacao">
-      <button id="btn-ir-inscricao" type="button">Inscrição</button>
-      <button id="btn-ir-config" type="button">⚙️</button>
-    </div>
-  </div>
-  <div id="lista-eventos"></div>
-</section>
+<!-- App (painel principal, depois de logado) -->
+<section id="tela-app" class="oculto">
+  <nav class="barra-lateral">
+    <div class="marca">Vai ter federal, sim!</div>
+    <button id="nav-feed" type="button"><span class="icone-nav">📰</span><span>Feed</span></button>
+    <button id="nav-prazos" type="button"><span class="icone-nav">📅</span><span>Prazos</span></button>
+    <button id="nav-inscricao" type="button"><span class="icone-nav">📝</span><span>Inscrição</span></button>
+    <button id="nav-config" type="button"><span class="icone-nav">⚙️</span><span>Ajustes</span></button>
+    <button id="btn-logout-config" type="button" class="nav-sair"><span class="icone-nav">🚪</span><span>Sair</span></button>
+  </nav>
 
-<!-- Inscrição Enem/Sisu -->
-<section id="view-inscricao" class="tela" hidden>
-  <div class="cabecalho-app">
-    <h1>Enem / Sisu</h1>
-    <button class="botao-secundario" id="btn-voltar-home-1" type="button" style="width:auto">← Voltar</button>
-  </div>
-  <form id="form-inscricao">
-    <h2 style="font-size:1.05rem">Enem</h2>
-    <div class="grade-duas-colunas">
-      <div>
-        <label for="insc-enem-inscricao">Número de inscrição</label>
-        <input type="text" id="insc-enem-inscricao" />
-      </div>
-      <div>
-        <label for="insc-enem-local">Local de prova</label>
-        <input type="text" id="insc-enem-local" />
-      </div>
-      <div>
-        <label for="insc-enem-dia1">1º dia de prova</label>
-        <input type="date" id="insc-enem-dia1" />
-      </div>
-      <div>
-        <label for="insc-enem-dia2">2º dia de prova</label>
-        <input type="date" id="insc-enem-dia2" />
-      </div>
-    </div>
+  <main class="conteudo-principal">
 
-    <h2 style="font-size:1.05rem;margin-top:28px">Sisu</h2>
-    <div class="grade-duas-colunas">
-      <div>
-        <label for="insc-sisu-curso">Curso pretendido</label>
-        <input type="text" id="insc-sisu-curso" />
+    <!-- Feed -->
+    <section id="pagina-feed" class="pagina ativa">
+      <div class="cabecalho-pagina">
+        <h1>Feed — UFC &amp; IFCE</h1>
       </div>
-      <div>
-        <label for="insc-sisu-turno">Turno</label>
-        <input type="text" id="insc-sisu-turno" placeholder="Manhã, tarde, integral..." />
+      <div class="chips">
+        <button class="chip chip-ativo" data-filtro="todos" type="button">Tudo</button>
+        <button class="chip" data-filtro="UFC" type="button">UFC</button>
+        <button class="chip" data-filtro="IFCE" type="button">IFCE</button>
       </div>
-      <div>
-        <label for="insc-sisu-inscricao">Número de inscrição no Sisu</label>
-        <input type="text" id="insc-sisu-inscricao" />
-      </div>
-      <div>
-        <label for="insc-sisu-status">Status</label>
-        <select id="insc-sisu-status">
-          <option value="classificado">Classificado</option>
-          <option value="lista_espera">Lista de espera</option>
-          <option value="nao_classificado">Não classificado</option>
-        </select>
-      </div>
-      <div>
-        <label for="insc-sisu-posicao">Posição na lista de espera</label>
-        <input type="number" id="insc-sisu-posicao" min="0" />
-      </div>
-    </div>
+      <div id="feed-lista"></div>
+    </section>
 
-    <button class="botao" type="submit">Salvar</button>
-    <div id="msg-inscricao-salva" class="aviso" hidden>Salvo!</div>
-  </form>
-</section>
+    <!-- Prazos -->
+    <section id="pagina-prazos" class="pagina">
+      <div class="cabecalho-pagina">
+        <h1>Seus prazos</h1>
+      </div>
+      <div id="lista-eventos"></div>
+    </section>
 
-<!-- Configurações -->
-<section id="view-config" class="tela" hidden>
-  <div class="cabecalho-app">
-    <h1>Configurações</h1>
-    <button class="botao-secundario" id="btn-voltar-home-2" type="button" style="width:auto">← Voltar</button>
-  </div>
-  <p class="info-conta">Conta: <span id="config-email"></span></p>
-  <form id="form-config">
-    <div class="toggle-linha">
-      <span>Notificação push</span>
-      <input type="checkbox" id="config-push" />
-    </div>
-    <div class="toggle-linha">
-      <span>Notificação por e-mail</span>
-      <input type="checkbox" id="config-email-toggle" />
-    </div>
-    <div class="toggle-linha">
-      <span>Alerta urgente (prazo em menos de 24h)</span>
-      <input type="checkbox" id="config-urgente" />
-    </div>
-    <button class="botao" type="submit">Salvar preferências</button>
-    <div id="msg-config-salvo" class="aviso" hidden></div>
-  </form>
-  <button class="botao-secundario" id="btn-logout-config" type="button" style="margin-top:24px">
-    Sair da conta
-  </button>
+    <!-- Inscrição Enem/Sisu -->
+    <section id="pagina-inscricao" class="pagina">
+      <div class="cabecalho-pagina">
+        <h1>Enem / Sisu</h1>
+      </div>
+      <form id="form-inscricao">
+        <h2 style="font-size:1.05rem">Enem</h2>
+        <div class="grade-duas-colunas">
+          <div>
+            <label for="insc-enem-inscricao">Número de inscrição</label>
+            <input type="text" id="insc-enem-inscricao" />
+          </div>
+          <div>
+            <label for="insc-enem-local">Local de prova</label>
+            <input type="text" id="insc-enem-local" />
+          </div>
+          <div>
+            <label for="insc-enem-dia1">1º dia de prova</label>
+            <input type="date" id="insc-enem-dia1" />
+          </div>
+          <div>
+            <label for="insc-enem-dia2">2º dia de prova</label>
+            <input type="date" id="insc-enem-dia2" />
+          </div>
+        </div>
+
+        <h2 style="font-size:1.05rem;margin-top:28px">Sisu</h2>
+        <div class="grade-duas-colunas">
+          <div>
+            <label for="insc-sisu-curso">Curso pretendido</label>
+            <input type="text" id="insc-sisu-curso" />
+          </div>
+          <div>
+            <label for="insc-sisu-turno">Turno</label>
+            <input type="text" id="insc-sisu-turno" placeholder="Manhã, tarde, integral..." />
+          </div>
+          <div>
+            <label for="insc-sisu-inscricao">Número de inscrição no Sisu</label>
+            <input type="text" id="insc-sisu-inscricao" />
+          </div>
+          <div>
+            <label for="insc-sisu-status">Status</label>
+            <select id="insc-sisu-status">
+              <option value="classificado">Classificado</option>
+              <option value="lista_espera">Lista de espera</option>
+              <option value="nao_classificado">Não classificado</option>
+            </select>
+          </div>
+          <div>
+            <label for="insc-sisu-posicao">Posição na lista de espera</label>
+            <input type="number" id="insc-sisu-posicao" min="0" />
+          </div>
+        </div>
+
+        <button class="botao" type="submit">Salvar</button>
+        <div id="msg-inscricao-salva" class="aviso" hidden>Salvo!</div>
+      </form>
+    </section>
+
+    <!-- Configurações -->
+    <section id="pagina-config" class="pagina">
+      <div class="cabecalho-pagina">
+        <h1>Configurações</h1>
+      </div>
+      <p class="info-conta">Conta: <span id="config-email"></span></p>
+      <form id="form-config">
+        <div class="toggle-linha">
+          <span>Notificação push</span>
+          <input type="checkbox" id="config-push" />
+        </div>
+        <div class="toggle-linha">
+          <span>Notificação por e-mail</span>
+          <input type="checkbox" id="config-email-toggle" />
+        </div>
+        <div class="toggle-linha">
+          <span>Alerta urgente (prazo em menos de 24h)</span>
+          <input type="checkbox" id="config-urgente" />
+        </div>
+        <button class="botao" type="submit">Salvar preferências</button>
+        <div id="msg-config-salvo" class="aviso" hidden></div>
+      </form>
+    </section>
+
+  </main>
 </section>
 
 <script type="module" src="app.js"></script>
