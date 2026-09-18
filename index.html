@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Vai ter federal, sim!</title>
+<meta name="theme-color" content="#0f172a" />
+<link rel="manifest" href="manifest.json" />
+<link rel="icon" href="icon-192.png" />
+<link rel="apple-touch-icon" href="icon-192.png" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<style>
+  :root {
+    --fundo: #0f172a;
+    --superficie: #1e293b;
+    --superficie-2: #273549;
+    --texto: #f1f5f9;
+    --texto-suave: #94a3b8;
+    --azul: #2563eb;
+    --azul-hover: #1d4ed8;
+    --verde: #22c55e;
+    --vermelho: #f87171;
+    --borda: #334155;
+    --raio: 14px;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+    background: var(--fundo);
+    color: var(--texto);
+    min-height: 100vh;
+  }
+  .tela {
+    max-width: 460px;
+    margin: 0 auto;
+    padding: 24px 20px 40px;
+    min-height: 100vh;
+  }
+  @media (min-width: 820px) {
+    .tela { max-width: 620px; padding: 48px 32px 60px; }
+    .grade-duas-colunas { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  }
+  h1 { font-size: 1.5rem; margin: 0 0 4px; }
+  h2 { font-size: 1.3rem; margin: 0 0 20px; }
+  p.subtitulo { color: var(--texto-suave); margin: 0 0 28px; }
+  label {
+    display: block;
+    font-size: 0.85rem;
+    color: var(--texto-suave);
+    margin: 14px 0 6px;
+  }
+  input, select {
+    width: 100%;
+    padding: 12px 14px;
+    border-radius: 10px;
+    border: 1px solid var(--borda);
+    background: var(--superficie);
+    color: var(--texto);
+    font-size: 1rem;
+  }
+  input:focus, select:focus { outline: 2px solid var(--azul); }
+  .botao {
+    width: 100%;
+    padding: 13px;
+    margin-top: 24px;
+    border: none;
+    border-radius: 10px;
+    background: var(--azul);
+    color: white;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .botao:hover { background: var(--azul-hover); }
+  .botao:disabled { opacity: 0.6; cursor: default; }
+  .botao-secundario {
+    width: 100%;
+    padding: 10px;
+    border-radius: 10px;
+    border: 1px solid var(--borda);
+    background: transparent;
+    color: var(--texto);
+    font-size: 0.95rem;
+    cursor: pointer;
+  }
+  .link-central {
+    text-align: center;
+    margin-top: 18px;
+    color: var(--texto-suave);
+    font-size: 0.9rem;
+  }
+  .link-central button {
+    background: none;
+    border: none;
+    color: #60a5fa;
+    font-size: 0.9rem;
+    cursor: pointer;
+    text-decoration: underline;
+    padding: 0;
+  }
+  .erro {
+    background: rgba(248, 113, 113, 0.12);
+    border: 1px solid rgba(248, 113, 113, 0.4);
+    color: #fca5a5;
+    padding: 10px 12px;
+    border-radius: 10px;
+    font-size: 0.88rem;
+    margin-top: 16px;
+  }
+  .aviso {
+    background: rgba(34, 197, 94, 0.12);
+    border: 1px solid rgba(34, 197, 94, 0.4);
+    color: #86efac;
+    padding: 10px 12px;
+    border-radius: 10px;
+    font-size: 0.88rem;
+    margin-top: 16px;
+  }
+  .cabecalho-app {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 24px;
+  }
+  .cabecalho-app h1 { margin: 0; font-size: 1.2rem; }
+  .navegacao {
+    display: flex;
+    gap: 8px;
+  }
+  .navegacao button {
+    background: var(--superficie);
+    border: 1px solid var(--borda);
+    color: var(--texto);
+    padding: 8px 10px;
+    border-radius: 10px;
+    font-size: 0.82rem;
+    cursor: pointer;
+  }
+  .cartao-evento {
+    background: var(--superficie);
+    border: 1px solid var(--borda);
+    border-radius: var(--raio);
+    padding: 16px;
+    margin-bottom: 12px;
+  }
+  .cartao-topo {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 8px;
+  }
+  .etiqueta {
+    font-size: 0.72rem;
+    color: var(--texto-suave);
+    background: var(--superficie-2);
+    padding: 3px 8px;
+    border-radius: 999px;
+    white-space: nowrap;
+  }
+  .cartao-data { color: var(--texto-suave); font-size: 0.85rem; margin: 6px 0 10px; }
+  .confirmado { color: #86efac; font-size: 0.88rem; }
+  .vazio { color: var(--texto-suave); text-align: center; padding: 40px 10px; }
+  .rodape-fixo {
+    display: flex;
+    gap: 10px;
+    margin-top: 28px;
+  }
+  .rodape-fixo button { flex: 1; }
+  .toggle-linha {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--borda);
+  }
+  .toggle-linha input[type="checkbox"] { width: auto; }
+  .info-conta { color: var(--texto-suave); font-size: 0.85rem; margin-bottom: 20px; }
+  .carregando-caixa {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    color: var(--texto-suave);
+  }
+</style>
+</head>
+<body>
+
+<!-- Carregando -->
+<section id="view-carregando" class="tela carregando-caixa">
+  <p>Carregando…</p>
+</section>
+
+<!-- Login -->
+<section id="view-login" class="tela" hidden>
+  <h1>Vai ter federal, sim!</h1>
+  <p class="subtitulo">Prazos do Enem, Sisu e da UFC, tudo num lugar só.</p>
+  <h2>Entrar</h2>
+  <form id="form-login">
+    <label for="login-email">E-mail</label>
+    <input type="email" id="login-email" required autocomplete="email" />
+    <label for="login-senha">Senha</label>
+    <input type="password" id="login-senha" required autocomplete="current-password" />
+    <button class="botao" type="submit">Entrar</button>
+    <div id="erro-login" class="erro" hidden></div>
+  </form>
+  <div class="link-central">
+    Ainda não tem conta? <button id="btn-ir-cadastro" type="button">Criar conta</button>
+  </div>
+</section>
+
+<!-- Cadastro -->
+<section id="view-cadastro" class="tela" hidden>
+  <h1>Criar conta</h1>
+  <p class="subtitulo">E-mail e senha juntos — sem código, sem complicação.</p>
+  <form id="form-cadastro">
+    <label for="cadastro-email">E-mail</label>
+    <input type="email" id="cadastro-email" required autocomplete="email" />
+    <label for="cadastro-senha">Senha</label>
+    <input type="password" id="cadastro-senha" required minlength="6" autocomplete="new-password" />
+    <button class="botao" type="submit">Criar conta</button>
+    <div id="erro-cadastro" class="erro" hidden></div>
+  </form>
+  <div class="link-central">
+    Já tem conta? <button id="btn-ir-login" type="button">Entrar</button>
+  </div>
+</section>
+
+<!-- Confirmar e-mail -->
+<section id="view-verificar-email" class="tela" hidden>
+  <h1>Confirme seu e-mail</h1>
+  <p class="subtitulo">
+    Mandamos um link de confirmação para <strong id="verificar-email-endereco"></strong>.
+    Abra o e-mail, clique no link e volte aqui.
+  </p>
+  <button class="botao" id="btn-ja-confirmei" type="button">Já confirmei</button>
+  <button class="botao-secundario" id="btn-reenviar-email" type="button" style="margin-top:12px">
+    Reenviar e-mail
+  </button>
+  <button class="botao-secundario" id="btn-logout" type="button" style="margin-top:12px">
+    Usar outra conta
+  </button>
+  <div id="erro-verificar" class="aviso" hidden></div>
+</section>
+
+<!-- Home -->
+<section id="view-home" class="tela" hidden>
+  <div class="cabecalho-app">
+    <h1>Seus prazos</h1>
+    <div class="navegacao">
+      <button id="btn-ir-inscricao" type="button">Inscrição</button>
+      <button id="btn-ir-config" type="button">⚙️</button>
+    </div>
+  </div>
+  <div id="lista-eventos"></div>
+</section>
+
+<!-- Inscrição Enem/Sisu -->
+<section id="view-inscricao" class="tela" hidden>
+  <div class="cabecalho-app">
+    <h1>Enem / Sisu</h1>
+    <button class="botao-secundario" id="btn-voltar-home-1" type="button" style="width:auto">← Voltar</button>
+  </div>
+  <form id="form-inscricao">
+    <h2 style="font-size:1.05rem">Enem</h2>
+    <div class="grade-duas-colunas">
+      <div>
+        <label for="insc-enem-inscricao">Número de inscrição</label>
+        <input type="text" id="insc-enem-inscricao" />
+      </div>
+      <div>
+        <label for="insc-enem-local">Local de prova</label>
+        <input type="text" id="insc-enem-local" />
+      </div>
+      <div>
+        <label for="insc-enem-dia1">1º dia de prova</label>
+        <input type="date" id="insc-enem-dia1" />
+      </div>
+      <div>
+        <label for="insc-enem-dia2">2º dia de prova</label>
+        <input type="date" id="insc-enem-dia2" />
+      </div>
+    </div>
+
+    <h2 style="font-size:1.05rem;margin-top:28px">Sisu</h2>
+    <div class="grade-duas-colunas">
+      <div>
+        <label for="insc-sisu-curso">Curso pretendido</label>
+        <input type="text" id="insc-sisu-curso" />
+      </div>
+      <div>
+        <label for="insc-sisu-turno">Turno</label>
+        <input type="text" id="insc-sisu-turno" placeholder="Manhã, tarde, integral..." />
+      </div>
+      <div>
+        <label for="insc-sisu-inscricao">Número de inscrição no Sisu</label>
+        <input type="text" id="insc-sisu-inscricao" />
+      </div>
+      <div>
+        <label for="insc-sisu-status">Status</label>
+        <select id="insc-sisu-status">
+          <option value="classificado">Classificado</option>
+          <option value="lista_espera">Lista de espera</option>
+          <option value="nao_classificado">Não classificado</option>
+        </select>
+      </div>
+      <div>
+        <label for="insc-sisu-posicao">Posição na lista de espera</label>
+        <input type="number" id="insc-sisu-posicao" min="0" />
+      </div>
+    </div>
+
+    <button class="botao" type="submit">Salvar</button>
+    <div id="msg-inscricao-salva" class="aviso" hidden>Salvo!</div>
+  </form>
+</section>
+
+<!-- Configurações -->
+<section id="view-config" class="tela" hidden>
+  <div class="cabecalho-app">
+    <h1>Configurações</h1>
+    <button class="botao-secundario" id="btn-voltar-home-2" type="button" style="width:auto">← Voltar</button>
+  </div>
+  <p class="info-conta">Conta: <span id="config-email"></span></p>
+  <form id="form-config">
+    <div class="toggle-linha">
+      <span>Notificação push</span>
+      <input type="checkbox" id="config-push" />
+    </div>
+    <div class="toggle-linha">
+      <span>Notificação por e-mail</span>
+      <input type="checkbox" id="config-email-toggle" />
+    </div>
+    <div class="toggle-linha">
+      <span>Alerta urgente (prazo em menos de 24h)</span>
+      <input type="checkbox" id="config-urgente" />
+    </div>
+    <button class="botao" type="submit">Salvar preferências</button>
+    <div id="msg-config-salvo" class="aviso" hidden></div>
+  </form>
+  <button class="botao-secundario" id="btn-logout-config" type="button" style="margin-top:24px">
+    Sair da conta
+  </button>
+</section>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>
