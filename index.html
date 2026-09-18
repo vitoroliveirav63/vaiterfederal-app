@@ -4,129 +4,163 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>Vai ter federal, sim!</title>
-<meta name="theme-color" content="#0f172a" />
+<meta name="theme-color" content="#12386E" />
 <link rel="manifest" href="manifest.json" />
 <link rel="icon" href="icon-192.png" />
 <link rel="apple-touch-icon" href="icon-192.png" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="default" />
 <style>
   :root {
-    --fundo: #0f172a;
-    --superficie: #1e293b;
-    --superficie-2: #273549;
-    --texto: #f1f5f9;
-    --texto-suave: #94a3b8;
-    --azul: #2563eb;
-    --azul-hover: #1d4ed8;
-    --verde: #22c55e;
-    --vermelho: #f87171;
-    --borda: #334155;
+    color-scheme: light;
+
+    /* Superfícies */
+    --creme: #FBF4EF;
+    --cartao: #FFFFFF;
+    --cartao-2: #FDF9F6;
+    --borda: #ECE0D8;
+    --trilho: #F0E8E2;
+
+    /* Tinta */
+    --tinta: #1C1917;
+    --tinta-2: #6B6259;
+    --tinta-3: #97897E;
+
+    /* Marca */
+    --marinho: #12386E;
+    --marinho-2: #0D2A52;
+    --azul: #1D5FBF;
+    --azul-suave: #E4EEFB;
+
+    /* Etiquetas */
+    --ufc-fundo: #E4EEFB;  --ufc-tinta: #1B4E96;
+    --ifce-fundo: #DEF0E4; --ifce-tinta: #0B5A33;
+    --novo-fundo: #FDECD4; --novo-tinta: #92500B;
+    --ok-fundo: #DEF0E4;   --ok-tinta: #0B5A33;
+    --erro-fundo: #FCE8E6; --erro-tinta: #A02419;
+
     --raio: 14px;
-    --largura-lateral: 240px;
-    --altura-tabs: 62px;
+    --largura-lateral: 232px;
+    --altura-tabs: 64px;
   }
   * { box-sizing: border-box; }
   html, body {
     margin: 0;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
-    background: var(--fundo);
-    color: var(--texto);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+    background: var(--creme);
+    color: var(--tinta);
     min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
   }
   img { max-width: 100%; display: block; }
 
-  /* Utilitário universal de esconder — !important pra nunca perder pra
-     nenhuma outra regra e nunca mais "empilhar" telas na tela. */
+  /* Esconder — !important pra nunca perder pra nenhuma outra regra. */
   .oculto { display: none !important; }
 
   /* ------------------------------------------------------------------ */
-  /* Telas cheias (login, cadastro, confirmar e-mail, carregando)        */
+  /* Telas cheias: carregando, login, cadastro, confirmar e-mail         */
   /* ------------------------------------------------------------------ */
   .tela-cheia {
-    max-width: 460px;
+    max-width: 420px;
     margin: 0 auto;
-    padding: 24px 20px 40px;
+    padding: 48px 20px 56px;
     min-height: 100vh;
   }
   @media (min-width: 820px) {
-    .tela-cheia { max-width: 620px; padding: 48px 32px 60px; }
+    .tela-cheia { max-width: 460px; padding: 72px 24px; }
     .grade-duas-colunas { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
   }
-  h1 { font-size: 1.5rem; margin: 0 0 4px; }
-  h2 { font-size: 1.3rem; margin: 0 0 20px; }
-  p.subtitulo { color: var(--texto-suave); margin: 0 0 28px; }
+  .cartao-auth {
+    background: var(--cartao);
+    border: 1px solid var(--borda);
+    border-radius: 18px;
+    padding: 28px 24px 30px;
+  }
+  h1 { font-size: 1.45rem; margin: 0 0 6px; letter-spacing: -0.01em; }
+  h2 { font-size: 1.05rem; margin: 0 0 18px; }
+  p.subtitulo { color: var(--tinta-2); margin: 0 0 26px; font-size: 0.92rem; line-height: 1.55; }
   label {
     display: block;
-    font-size: 0.85rem;
-    color: var(--texto-suave);
-    margin: 14px 0 6px;
+    font-size: 0.72rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--tinta-2);
+    margin: 16px 0 6px;
+    font-weight: 600;
   }
   input, select {
     width: 100%;
-    padding: 12px 14px;
+    padding: 11px 13px;
     border-radius: 10px;
     border: 1px solid var(--borda);
-    background: var(--superficie);
-    color: var(--texto);
-    font-size: 1rem;
+    background: var(--cartao);
+    color: var(--tinta);
+    font-size: 0.95rem;
+    font-family: inherit;
   }
-  input:focus, select:focus { outline: 2px solid var(--azul); }
+  input:focus, select:focus {
+    outline: none;
+    border-color: var(--azul);
+    box-shadow: 0 0 0 3px rgba(29, 95, 191, 0.14);
+  }
   .botao {
     width: 100%;
-    padding: 13px;
+    padding: 12px;
     margin-top: 24px;
     border: none;
     border-radius: 10px;
-    background: var(--azul);
-    color: white;
-    font-size: 1rem;
+    background: var(--marinho);
+    color: #fff;
+    font-size: 0.95rem;
     font-weight: 600;
+    font-family: inherit;
     cursor: pointer;
   }
-  .botao:hover { background: var(--azul-hover); }
-  .botao:disabled { opacity: 0.6; cursor: default; }
+  .botao:hover { background: var(--marinho-2); }
+  .botao:disabled { opacity: 0.55; cursor: default; }
   .botao-secundario {
     width: 100%;
     padding: 10px;
     border-radius: 10px;
     border: 1px solid var(--borda);
-    background: transparent;
-    color: var(--texto);
-    font-size: 0.95rem;
+    background: var(--cartao);
+    color: var(--tinta);
+    font-size: 0.9rem;
+    font-family: inherit;
     cursor: pointer;
   }
+  .botao-secundario:hover { background: var(--cartao-2); }
   .link-central {
     text-align: center;
-    margin-top: 18px;
-    color: var(--texto-suave);
-    font-size: 0.9rem;
+    margin-top: 20px;
+    color: var(--tinta-2);
+    font-size: 0.88rem;
   }
   .link-central button {
     background: none;
     border: none;
-    color: #60a5fa;
-    font-size: 0.9rem;
+    color: var(--azul);
+    font-size: 0.88rem;
+    font-family: inherit;
+    font-weight: 600;
     cursor: pointer;
-    text-decoration: underline;
     padding: 0;
   }
   .erro {
-    background: rgba(248, 113, 113, 0.12);
-    border: 1px solid rgba(248, 113, 113, 0.4);
-    color: #fca5a5;
+    background: var(--erro-fundo);
+    color: var(--erro-tinta);
     padding: 10px 12px;
     border-radius: 10px;
-    font-size: 0.88rem;
+    font-size: 0.85rem;
     margin-top: 16px;
   }
   .aviso {
-    background: rgba(34, 197, 94, 0.12);
-    border: 1px solid rgba(34, 197, 94, 0.4);
-    color: #86efac;
+    background: var(--ok-fundo);
+    color: var(--ok-tinta);
     padding: 10px 12px;
     border-radius: 10px;
-    font-size: 0.88rem;
+    font-size: 0.85rem;
     margin-top: 16px;
   }
   .carregando-caixa {
@@ -134,21 +168,19 @@
     align-items: center;
     justify-content: center;
     min-height: 100vh;
-    color: var(--texto-suave);
+    color: var(--tinta-3);
+    font-size: 0.92rem;
   }
 
   /* ------------------------------------------------------------------ */
-  /* Painel principal (depois de logado): barra lateral/tabs + conteúdo  */
+  /* Painel principal: barra lateral (desktop) / abas embaixo (celular)  */
   /* ------------------------------------------------------------------ */
   #tela-app {
     min-height: 100vh;
     padding-bottom: var(--altura-tabs);
   }
   @media (min-width: 820px) {
-    #tela-app {
-      display: flex;
-      padding-bottom: 0;
-    }
+    #tela-app { display: flex; padding-bottom: 0; }
   }
 
   .barra-lateral {
@@ -156,7 +188,7 @@
     bottom: 0; left: 0; right: 0;
     height: var(--altura-tabs);
     display: flex;
-    background: var(--superficie);
+    background: var(--cartao);
     border-top: 1px solid var(--borda);
     z-index: 10;
   }
@@ -164,8 +196,9 @@
     flex: 1;
     background: none;
     border: none;
-    color: var(--texto-suave);
-    font-size: 0.68rem;
+    color: var(--tinta-3);
+    font-size: 0.66rem;
+    font-family: inherit;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -174,9 +207,8 @@
     cursor: pointer;
     padding: 4px;
   }
-  .barra-lateral button .icone-nav { font-size: 1.25rem; }
-  .barra-lateral button.nav-ativo { color: #60a5fa; }
-  .barra-lateral .nav-sair { margin-left: auto; }
+  .barra-lateral button .icone-nav { font-size: 1.2rem; }
+  .barra-lateral button.nav-ativo { color: var(--marinho); font-weight: 600; }
 
   @media (min-width: 820px) {
     .barra-lateral {
@@ -186,28 +218,49 @@
       width: var(--largura-lateral);
       height: 100vh;
       flex-direction: column;
+      gap: 3px;
       border-top: none;
-      border-right: 1px solid var(--borda);
-      padding: 24px 12px;
-      gap: 4px;
+      border-right: none;
+      background: var(--marinho);
+      padding: 26px 14px 22px;
       flex-shrink: 0;
     }
     .barra-lateral .marca {
+      color: #fff;
       font-weight: 700;
-      font-size: 1.05rem;
-      padding: 0 10px 20px;
+      font-size: 0.98rem;
+      line-height: 1.25;
+      padding: 0 10px 26px;
+    }
+    .barra-lateral .marca span {
+      display: block;
+      font-weight: 400;
+      font-size: 0.72rem;
+      opacity: 0.7;
+      margin-top: 2px;
     }
     .barra-lateral button {
+      flex: none;
       flex-direction: row;
       justify-content: flex-start;
-      gap: 12px;
-      font-size: 0.92rem;
-      padding: 11px 12px;
+      gap: 11px;
+      font-size: 0.88rem;
+      padding: 10px 12px;
       border-radius: 10px;
-      color: var(--texto);
+      color: rgba(255,255,255,0.78);
     }
-    .barra-lateral button.nav-ativo { background: var(--superficie-2); color: #60a5fa; }
-    .barra-lateral .nav-sair { margin-left: 0; margin-top: auto; color: var(--texto-suave); }
+    .barra-lateral button:hover { background: rgba(255,255,255,0.09); color: #fff; }
+    .barra-lateral button .icone-nav { font-size: 1rem; }
+    .barra-lateral button.nav-ativo {
+      background: #fff;
+      color: var(--marinho);
+      font-weight: 600;
+    }
+    .barra-lateral .nav-sair {
+      margin-top: auto;
+      color: rgba(255,255,255,0.6);
+      font-size: 0.82rem;
+    }
   }
   .marca { display: none; }
   @media (min-width: 820px) { .marca { display: block; } }
@@ -215,125 +268,193 @@
   .conteudo-principal {
     flex: 1;
     min-width: 0;
-    padding: 20px 16px 32px;
+    padding: 24px 16px 32px;
   }
   @media (min-width: 820px) {
-    .conteudo-principal { padding: 32px 40px 48px; max-width: 880px; }
+    .conteudo-principal { padding: 40px 44px 56px; max-width: 900px; }
   }
 
   .pagina { display: none; }
   .pagina.ativa { display: block; }
 
-  .cabecalho-pagina {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 18px;
-    gap: 10px;
-  }
-  .cabecalho-pagina h1 { margin: 0; font-size: 1.25rem; }
+  .cabecalho-pagina { margin-bottom: 20px; }
+  .cabecalho-pagina h1 { margin: 0 0 4px; font-size: 1.35rem; }
+  .cabecalho-pagina p { margin: 0; color: var(--tinta-2); font-size: 0.88rem; }
 
-  /* Chips de categoria (feed) */
-  .chips { display: flex; gap: 8px; margin-bottom: 18px; flex-wrap: wrap; }
+  /* Filtros do feed */
+  .chips {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 18px;
+    flex-wrap: wrap;
+  }
   .chip {
-    background: var(--superficie);
+    background: var(--cartao);
     border: 1px solid var(--borda);
-    color: var(--texto-suave);
-    padding: 7px 14px;
-    border-radius: 999px;
+    color: var(--tinta-2);
+    padding: 7px 16px;
+    border-radius: 99px;
     font-size: 0.82rem;
+    font-family: inherit;
+    font-weight: 500;
     cursor: pointer;
   }
-  .chip.chip-ativo { background: var(--azul); border-color: var(--azul); color: white; }
+  .chip:hover { background: var(--cartao-2); }
+  .chip.chip-ativo {
+    background: var(--marinho);
+    border-color: var(--marinho);
+    color: #fff;
+    font-weight: 600;
+  }
 
   /* Cartões do feed */
   .cartao-noticia {
-    background: var(--superficie);
+    background: var(--cartao);
     border: 1px solid var(--borda);
     border-radius: var(--raio);
-    padding: 16px;
+    padding: 18px 18px 16px;
     margin-bottom: 14px;
   }
   .cartao-topo-noticia {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
     margin-bottom: 10px;
     flex-wrap: wrap;
   }
   .etiqueta {
-    font-size: 0.72rem;
-    color: var(--texto-suave);
-    background: var(--superficie-2);
-    padding: 3px 9px;
-    border-radius: 999px;
+    font-size: 0.68rem;
+    font-weight: 600;
+    color: var(--tinta-2);
+    background: #F1EBE6;
+    padding: 4px 10px;
+    border-radius: 99px;
     white-space: nowrap;
   }
-  .etiqueta-fonte-UFC { background: rgba(37, 99, 235, 0.22); color: #93c5fd; }
-  .etiqueta-fonte-IFCE { background: rgba(34, 197, 94, 0.18); color: #86efac; }
-  .etiqueta-novo { background: rgba(248, 113, 113, 0.18); color: #fca5a5; }
-  .cartao-noticia h3 { margin: 0 0 8px; font-size: 1.05rem; }
-  .cartao-imagem { border-radius: 10px; overflow: hidden; margin-bottom: 10px; max-height: 260px; }
+  .etiqueta-fonte-UFC { background: var(--ufc-fundo); color: var(--ufc-tinta); }
+  .etiqueta-fonte-IFCE { background: var(--ifce-fundo); color: var(--ifce-tinta); }
+  .etiqueta-novo { background: var(--novo-fundo); color: var(--novo-tinta); }
+  .cartao-noticia h3 { margin: 0 0 10px; font-size: 1.02rem; line-height: 1.35; }
+  .cartao-imagem {
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 12px;
+    max-height: 260px;
+    background: var(--trilho);
+  }
   .cartao-imagem img { width: 100%; object-fit: cover; }
   .cartao-corpo {
-    color: #cbd5e1;
-    font-size: 0.92rem;
-    line-height: 1.5;
+    color: var(--tinta-2);
+    font-size: 0.89rem;
+    line-height: 1.6;
     white-space: pre-wrap;
   }
   .cartao-corpo.recolhido {
-    max-height: 4.6em;
+    max-height: 4.8em;
     overflow: hidden;
-    position: relative;
   }
   .botao-ver-mais {
     background: none;
     border: none;
-    color: #60a5fa;
-    font-size: 0.85rem;
+    color: var(--azul);
+    font-size: 0.83rem;
+    font-family: inherit;
+    font-weight: 600;
     cursor: pointer;
-    padding: 6px 0 0;
+    padding: 8px 0 0;
   }
-  .lista-anexos { margin: 10px 0 0; padding: 0; list-style: none; font-size: 0.85rem; }
-  .lista-anexos li { margin-bottom: 4px; }
-  .lista-anexos a { color: #60a5fa; }
+  .lista-anexos {
+    margin: 12px 0 0;
+    padding: 0;
+    list-style: none;
+    font-size: 0.83rem;
+  }
+  .lista-anexos li { margin-bottom: 5px; }
+  .lista-anexos a { color: var(--azul); }
   .cartao-rodape {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-top: 12px;
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px solid var(--borda);
     gap: 10px;
     flex-wrap: wrap;
   }
-  .cartao-rodape a { color: #60a5fa; font-size: 0.82rem; text-decoration: none; }
-  .cartao-data { color: var(--texto-suave); font-size: 0.78rem; }
+  .cartao-rodape a {
+    color: var(--azul);
+    font-size: 0.82rem;
+    font-weight: 600;
+    text-decoration: none;
+  }
+  .cartao-data { color: var(--tinta-3); font-size: 0.78rem; }
 
-  /* Cartões de prazos (mantidos da versão anterior) */
+  /* Cartões de prazos */
   .cartao-evento {
-    background: var(--superficie);
+    background: var(--cartao);
     border: 1px solid var(--borda);
     border-radius: var(--raio);
-    padding: 16px;
+    padding: 18px;
     margin-bottom: 12px;
   }
   .cartao-topo {
     display: flex;
     justify-content: space-between;
     align-items: baseline;
-    gap: 8px;
+    gap: 10px;
+    margin-bottom: 4px;
   }
-  .confirmado { color: #86efac; font-size: 0.88rem; }
-  .vazio { color: var(--texto-suave); text-align: center; padding: 40px 10px; }
+  .cartao-topo strong { font-size: 1rem; }
+  .cartao-evento .botao-secundario { margin-top: 10px; width: auto; padding: 8px 16px; }
+  .confirmado { color: var(--ifce-tinta); font-size: 0.86rem; font-weight: 600; margin-top: 8px; }
+  .vazio {
+    color: var(--tinta-2);
+    text-align: center;
+    padding: 44px 20px;
+    background: var(--cartao);
+    border: 1px dashed var(--borda);
+    border-radius: var(--raio);
+    font-size: 0.9rem;
+    line-height: 1.6;
+    margin: 0;
+  }
 
+  /* Formulários dentro do painel */
+  .painel-form {
+    background: var(--cartao);
+    border: 1px solid var(--borda);
+    border-radius: var(--raio);
+    padding: 22px 20px 24px;
+  }
+  .painel-form h2 {
+    font-size: 0.72rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--tinta-2);
+    margin: 0 0 4px;
+    font-weight: 700;
+  }
+  .painel-form .grade-duas-colunas + h2 { margin-top: 26px; }
   .toggle-linha {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 12px 0;
+    padding: 14px 0;
     border-bottom: 1px solid var(--borda);
+    font-size: 0.92rem;
   }
-  .toggle-linha input[type="checkbox"] { width: auto; }
-  .info-conta { color: var(--texto-suave); font-size: 0.85rem; margin-bottom: 20px; }
+  .toggle-linha:last-of-type { border-bottom: none; }
+  .toggle-linha input[type="checkbox"] {
+    width: auto;
+    accent-color: var(--marinho);
+    transform: scale(1.25);
+  }
+  .info-conta {
+    color: var(--tinta-2);
+    font-size: 0.88rem;
+    margin: 0 0 16px;
+  }
+  .info-conta span { color: var(--tinta); font-weight: 600; }
 </style>
 </head>
 <body>
@@ -347,34 +468,38 @@
 <section id="tela-login" class="tela-cheia oculto">
   <h1>Vai ter federal, sim!</h1>
   <p class="subtitulo">Prazos e notícias do Enem, Sisu, UFC e IFCE, tudo num lugar só.</p>
-  <h2>Entrar</h2>
-  <form id="form-login">
-    <label for="login-email">E-mail</label>
-    <input type="email" id="login-email" required autocomplete="email" />
-    <label for="login-senha">Senha</label>
-    <input type="password" id="login-senha" required autocomplete="current-password" />
-    <button class="botao" type="submit">Entrar</button>
-    <div id="erro-login" class="erro" hidden></div>
-  </form>
-  <div class="link-central">
-    Ainda não tem conta? <button id="btn-ir-cadastro" type="button">Criar conta</button>
+  <div class="cartao-auth">
+    <h2>Entrar</h2>
+    <form id="form-login">
+      <label for="login-email">E-mail</label>
+      <input type="email" id="login-email" required autocomplete="email" />
+      <label for="login-senha">Senha</label>
+      <input type="password" id="login-senha" required autocomplete="current-password" />
+      <button class="botao" type="submit">Entrar</button>
+      <div id="erro-login" class="erro" hidden></div>
+    </form>
+    <div class="link-central">
+      Ainda não tem conta? <button id="btn-ir-cadastro" type="button">Criar conta</button>
+    </div>
   </div>
 </section>
 
 <!-- Cadastro -->
 <section id="tela-cadastro" class="tela-cheia oculto">
   <h1>Criar conta</h1>
-  <p class="subtitulo">E-mail e senha juntos — sem código, sem complicação.</p>
-  <form id="form-cadastro">
-    <label for="cadastro-email">E-mail</label>
-    <input type="email" id="cadastro-email" required autocomplete="email" />
-    <label for="cadastro-senha">Senha</label>
-    <input type="password" id="cadastro-senha" required minlength="6" autocomplete="new-password" />
-    <button class="botao" type="submit">Criar conta</button>
-    <div id="erro-cadastro" class="erro" hidden></div>
-  </form>
-  <div class="link-central">
-    Já tem conta? <button id="btn-ir-login" type="button">Entrar</button>
+  <p class="subtitulo">E-mail e senha, só isso — sem código, sem complicação.</p>
+  <div class="cartao-auth">
+    <form id="form-cadastro">
+      <label for="cadastro-email">E-mail</label>
+      <input type="email" id="cadastro-email" required autocomplete="email" />
+      <label for="cadastro-senha">Senha</label>
+      <input type="password" id="cadastro-senha" required minlength="6" autocomplete="new-password" />
+      <button class="botao" type="submit">Criar conta</button>
+      <div id="erro-cadastro" class="erro" hidden></div>
+    </form>
+    <div class="link-central">
+      Já tem conta? <button id="btn-ir-login" type="button">Entrar</button>
+    </div>
   </div>
 </section>
 
@@ -385,20 +510,22 @@
     Mandamos um link de confirmação para <strong id="verificar-email-endereco"></strong>.
     Abra o e-mail, clique no link e volte aqui.
   </p>
-  <button class="botao" id="btn-ja-confirmei" type="button">Já confirmei</button>
-  <button class="botao-secundario" id="btn-reenviar-email" type="button" style="margin-top:12px">
-    Reenviar e-mail
-  </button>
-  <button class="botao-secundario" id="btn-logout" type="button" style="margin-top:12px">
-    Usar outra conta
-  </button>
-  <div id="erro-verificar" class="aviso" hidden></div>
+  <div class="cartao-auth">
+    <button class="botao" id="btn-ja-confirmei" type="button" style="margin-top:0">Já confirmei</button>
+    <button class="botao-secundario" id="btn-reenviar-email" type="button" style="margin-top:12px">
+      Reenviar e-mail
+    </button>
+    <button class="botao-secundario" id="btn-logout" type="button" style="margin-top:12px">
+      Usar outra conta
+    </button>
+    <div id="erro-verificar" class="aviso" hidden></div>
+  </div>
 </section>
 
 <!-- App (painel principal, depois de logado) -->
 <section id="tela-app" class="oculto">
   <nav class="barra-lateral">
-    <div class="marca">Vai ter federal, sim!</div>
+    <div class="marca">Vai ter federal<span>sim!</span></div>
     <button id="nav-feed" type="button"><span class="icone-nav">📰</span><span>Feed</span></button>
     <button id="nav-prazos" type="button"><span class="icone-nav">📅</span><span>Prazos</span></button>
     <button id="nav-inscricao" type="button"><span class="icone-nav">📝</span><span>Inscrição</span></button>
@@ -411,7 +538,8 @@
     <!-- Feed -->
     <section id="pagina-feed" class="pagina ativa">
       <div class="cabecalho-pagina">
-        <h1>Feed — UFC &amp; IFCE</h1>
+        <h1>Feed</h1>
+        <p>Tudo que mudou nos sites da UFC e do IFCE, em um lugar só.</p>
       </div>
       <div class="chips">
         <button class="chip chip-ativo" data-filtro="todos" type="button">Tudo</button>
@@ -425,6 +553,7 @@
     <section id="pagina-prazos" class="pagina">
       <div class="cabecalho-pagina">
         <h1>Seus prazos</h1>
+        <p>Datas de envio, matrícula e ajustes — com aviso antes de vencer.</p>
       </div>
       <div id="lista-eventos"></div>
     </section>
@@ -433,83 +562,89 @@
     <section id="pagina-inscricao" class="pagina">
       <div class="cabecalho-pagina">
         <h1>Enem / Sisu</h1>
+        <p>Seus dados de inscrição e a posição na lista de espera.</p>
       </div>
-      <form id="form-inscricao">
-        <h2 style="font-size:1.05rem">Enem</h2>
-        <div class="grade-duas-colunas">
-          <div>
-            <label for="insc-enem-inscricao">Número de inscrição</label>
-            <input type="text" id="insc-enem-inscricao" />
+      <div class="painel-form">
+        <form id="form-inscricao">
+          <h2>Enem</h2>
+          <div class="grade-duas-colunas">
+            <div>
+              <label for="insc-enem-inscricao">Número de inscrição</label>
+              <input type="text" id="insc-enem-inscricao" />
+            </div>
+            <div>
+              <label for="insc-enem-local">Local de prova</label>
+              <input type="text" id="insc-enem-local" />
+            </div>
+            <div>
+              <label for="insc-enem-dia1">1º dia de prova</label>
+              <input type="date" id="insc-enem-dia1" />
+            </div>
+            <div>
+              <label for="insc-enem-dia2">2º dia de prova</label>
+              <input type="date" id="insc-enem-dia2" />
+            </div>
           </div>
-          <div>
-            <label for="insc-enem-local">Local de prova</label>
-            <input type="text" id="insc-enem-local" />
-          </div>
-          <div>
-            <label for="insc-enem-dia1">1º dia de prova</label>
-            <input type="date" id="insc-enem-dia1" />
-          </div>
-          <div>
-            <label for="insc-enem-dia2">2º dia de prova</label>
-            <input type="date" id="insc-enem-dia2" />
-          </div>
-        </div>
 
-        <h2 style="font-size:1.05rem;margin-top:28px">Sisu</h2>
-        <div class="grade-duas-colunas">
-          <div>
-            <label for="insc-sisu-curso">Curso pretendido</label>
-            <input type="text" id="insc-sisu-curso" />
+          <h2>Sisu</h2>
+          <div class="grade-duas-colunas">
+            <div>
+              <label for="insc-sisu-curso">Curso pretendido</label>
+              <input type="text" id="insc-sisu-curso" />
+            </div>
+            <div>
+              <label for="insc-sisu-turno">Turno</label>
+              <input type="text" id="insc-sisu-turno" placeholder="Manhã, tarde, integral..." />
+            </div>
+            <div>
+              <label for="insc-sisu-inscricao">Número de inscrição no Sisu</label>
+              <input type="text" id="insc-sisu-inscricao" />
+            </div>
+            <div>
+              <label for="insc-sisu-status">Status</label>
+              <select id="insc-sisu-status">
+                <option value="classificado">Classificado</option>
+                <option value="lista_espera">Lista de espera</option>
+                <option value="nao_classificado">Não classificado</option>
+              </select>
+            </div>
+            <div>
+              <label for="insc-sisu-posicao">Posição na lista de espera</label>
+              <input type="number" id="insc-sisu-posicao" min="0" />
+            </div>
           </div>
-          <div>
-            <label for="insc-sisu-turno">Turno</label>
-            <input type="text" id="insc-sisu-turno" placeholder="Manhã, tarde, integral..." />
-          </div>
-          <div>
-            <label for="insc-sisu-inscricao">Número de inscrição no Sisu</label>
-            <input type="text" id="insc-sisu-inscricao" />
-          </div>
-          <div>
-            <label for="insc-sisu-status">Status</label>
-            <select id="insc-sisu-status">
-              <option value="classificado">Classificado</option>
-              <option value="lista_espera">Lista de espera</option>
-              <option value="nao_classificado">Não classificado</option>
-            </select>
-          </div>
-          <div>
-            <label for="insc-sisu-posicao">Posição na lista de espera</label>
-            <input type="number" id="insc-sisu-posicao" min="0" />
-          </div>
-        </div>
 
-        <button class="botao" type="submit">Salvar</button>
-        <div id="msg-inscricao-salva" class="aviso" hidden>Salvo!</div>
-      </form>
+          <button class="botao" type="submit">Salvar</button>
+          <div id="msg-inscricao-salva" class="aviso" hidden>Salvo!</div>
+        </form>
+      </div>
     </section>
 
     <!-- Configurações -->
     <section id="pagina-config" class="pagina">
       <div class="cabecalho-pagina">
-        <h1>Configurações</h1>
+        <h1>Ajustes</h1>
+        <p>Como e quando você quer ser avisado.</p>
       </div>
-      <p class="info-conta">Conta: <span id="config-email"></span></p>
-      <form id="form-config">
-        <div class="toggle-linha">
-          <span>Notificação push</span>
-          <input type="checkbox" id="config-push" />
-        </div>
-        <div class="toggle-linha">
-          <span>Notificação por e-mail</span>
-          <input type="checkbox" id="config-email-toggle" />
-        </div>
-        <div class="toggle-linha">
-          <span>Alerta urgente (prazo em menos de 24h)</span>
-          <input type="checkbox" id="config-urgente" />
-        </div>
-        <button class="botao" type="submit">Salvar preferências</button>
-        <div id="msg-config-salvo" class="aviso" hidden></div>
-      </form>
+      <div class="painel-form">
+        <p class="info-conta">Conta: <span id="config-email"></span></p>
+        <form id="form-config">
+          <div class="toggle-linha">
+            <span>Notificação push</span>
+            <input type="checkbox" id="config-push" />
+          </div>
+          <div class="toggle-linha">
+            <span>Notificação por e-mail</span>
+            <input type="checkbox" id="config-email-toggle" />
+          </div>
+          <div class="toggle-linha">
+            <span>Alerta urgente (prazo em menos de 24h)</span>
+            <input type="checkbox" id="config-urgente" />
+          </div>
+          <button class="botao" type="submit">Salvar preferências</button>
+          <div id="msg-config-salvo" class="aviso" hidden></div>
+        </form>
+      </div>
     </section>
 
   </main>
