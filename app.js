@@ -304,6 +304,7 @@ function renderizarFeed() {
         const recolhido = corpo.classList.toggle("recolhido");
         botaoVerMais.textContent = recolhido ? "Ver mais" : "Ver menos";
       });
+      // Começa mostrando fechado; clique alterna. Ajusta o texto certo já de saída.
       botaoVerMais.textContent = "Ver mais";
     }
 
