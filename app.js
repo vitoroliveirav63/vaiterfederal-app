@@ -18,6 +18,7 @@ import {
   addDoc,
   query,
   orderBy,
+  limit,
   onSnapshot,
   serverTimestamp,
 } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
@@ -41,21 +42,37 @@ const VAPID_KEY =
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
-auth.languageCode = "pt";
+auth.languageCode = "pt"; // força o e-mail de confirmação a vir em português
 const db = getFirestore(app);
 const PROCESSO_ID = "principal";
 
 // ---------------------------------------------------------------------------
-// Navegação entre telas
+// Navegação entre telas (login/cadastro/app) e, dentro do app, entre páginas
+// (feed/prazos/inscrição/config). Tudo via classe CSS (nunca via "hidden"),
+// pra nunca mais acontecer de duas telas ficarem visíveis ao mesmo tempo.
 // ---------------------------------------------------------------------------
-const VIEWS = ["carregando", "login", "cadastro", "verificar-email", "home", "inscricao", "config"];
+const TELAS = ["carregando", "login", "cadastro", "verificar-email", "app"];
 
-function showView(nome) {
-  VIEWS.forEach((v) => {
-    const el = document.getElementById("view-" + v);
-    if (el) el.hidden = v !== nome;
+function mostrarTela(nome) {
+  TELAS.forEach((t) => {
+    const el = document.getElementById("tela-" + t);
+    if (el) el.classList.toggle("oculto", t !== nome);
   });
   window.scrollTo(0, 0);
+}
+
+const PAGINAS = ["feed", "prazos", "inscricao", "config"];
+
+function mostrarPagina(nome) {
+  PAGINAS.forEach((p) => {
+    const pag = document.getElementById("pagina-" + p);
+    if (pag) pag.classList.toggle("ativa", p === nome);
+    const navBtn = document.getElementById("nav-" + p);
+    if (navBtn) navBtn.classList.toggle("nav-ativo", p === nome);
+  });
+  window.scrollTo(0, 0);
+  if (nome === "inscricao") carregarInscricao();
+  if (nome === "config") carregarConfig();
 }
 
 function showMsg(id, texto) {
@@ -76,18 +93,20 @@ function escapeHtml(s) {
 // ---------------------------------------------------------------------------
 onAuthStateChanged(auth, async (user) => {
   if (!user) {
-    showView("login");
+    if (pararDeOuvirEventos) { pararDeOuvirEventos(); pararDeOuvirEventos = null; }
+    if (pararDeOuvirFeed) { pararDeOuvirFeed(); pararDeOuvirFeed = null; }
+    mostrarTela("login");
     return;
   }
   await reload(user);
   if (!user.emailVerified) {
     document.getElementById("verificar-email-endereco").textContent = user.email;
-    showView("verificar-email");
+    mostrarTela("verificar-email");
     return;
   }
   await garantirPerfil(user);
   registrarPush(user); // não bloqueia a navegação se o push falhar
-  irParaHome();
+  entrarNoApp();
 });
 
 async function garantirPerfil(user) {
@@ -149,8 +168,8 @@ document.getElementById("form-login").addEventListener("submit", async (e) => {
   }
 });
 
-document.getElementById("btn-ir-cadastro").addEventListener("click", () => showView("cadastro"));
-document.getElementById("btn-ir-login").addEventListener("click", () => showView("login"));
+document.getElementById("btn-ir-cadastro").addEventListener("click", () => mostrarTela("cadastro"));
+document.getElementById("btn-ir-login").addEventListener("click", () => mostrarTela("login"));
 
 document.getElementById("btn-ja-confirmei").addEventListener("click", async () => {
   const user = auth.currentUser;
@@ -159,7 +178,7 @@ document.getElementById("btn-ja-confirmei").addEventListener("click", async () =
   if (user.emailVerified) {
     await garantirPerfil(user);
     registrarPush(user);
-    irParaHome();
+    entrarNoApp();
   } else {
     showMsg("erro-verificar", "Ainda não chegou a confirmação. Clique no link do e-mail e tente de novo.");
   }
@@ -176,12 +195,144 @@ document.getElementById("btn-logout").addEventListener("click", () => signOut(au
 document.getElementById("btn-logout-config").addEventListener("click", () => signOut(auth));
 
 // ---------------------------------------------------------------------------
-// Tela inicial: lista de prazos/eventos
+// Entrar no app: liga a navegação lateral e os "escutadores" do Firestore
 // ---------------------------------------------------------------------------
 let pararDeOuvirEventos = null;
+let pararDeOuvirFeed = null;
+let navegacaoConfigurada = false;
+let chipsConfigurados = false;
 
-function irParaHome() {
-  showView("home");
+function entrarNoApp() {
+  mostrarTela("app");
+  ouvirEventos();
+  ouvirFeed();
+  mostrarPagina("feed");
+
+  if (!navegacaoConfigurada) {
+    navegacaoConfigurada = true;
+    PAGINAS.forEach((p) => {
+      const btn = document.getElementById("nav-" + p);
+      if (btn) btn.addEventListener("click", () => mostrarPagina(p));
+    });
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Feed: últimas notícias e páginas monitoradas da UFC e do IFCE
+// ---------------------------------------------------------------------------
+let filtroFeedAtual = "todos";
+let ultimosItensFeed = [];
+
+function formatarDataHora(ts) {
+  const data = ts?.toDate ? ts.toDate() : null;
+  if (!data) return "";
+  return data.toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+}
+
+function ehRecente(ts) {
+  const data = ts?.toDate ? ts.toDate() : null;
+  if (!data) return false;
+  return Date.now() - data.getTime() < 24 * 60 * 60 * 1000;
+}
+
+function nomeArquivoDeUrl(url) {
+  try {
+    return decodeURIComponent(url.split("/").pop().split("?")[0]);
+  } catch {
+    return url;
+  }
+}
+
+function renderizarFeed() {
+  const lista = document.getElementById("feed-lista");
+  const itens =
+    filtroFeedAtual === "todos" ?
+      ultimosItensFeed :
+      ultimosItensFeed.filter((it) => it.fonte === filtroFeedAtual);
+
+  lista.innerHTML = "";
+  if (itens.length === 0) {
+    lista.innerHTML =
+      '<p class="vazio">Nada por aqui ainda. Assim que o robô encontrar novidades na UFC ou no IFCE, elas aparecem aqui.</p>';
+    return;
+  }
+
+  itens.forEach((item) => {
+    const marcadorNovo = ehRecente(item.mudouEm) || ehRecente(item.novoEm);
+    const imagens = Array.isArray(item.imagens) ? item.imagens : [];
+    const anexos = Array.isArray(item.anexos) ? item.anexos : [];
+    const dataExibida = formatarDataHora(item.mudouEm || item.novoEm || item.atualizadoEm);
+    const corpoLongo = (item.corpo || "").length > 320;
+
+    const cartao = document.createElement("article");
+    cartao.className = "cartao-noticia";
+    cartao.innerHTML = `
+      <div class="cartao-topo-noticia">
+        <span class="etiqueta etiqueta-fonte-${escapeHtml(item.fonte || "")}">${escapeHtml(item.fonte || "")}</span>
+        <span class="etiqueta">${item.categoria === "noticia" ? "Notícia" : "Documento"}</span>
+        ${marcadorNovo ? '<span class="etiqueta etiqueta-novo">Atualizado</span>' : ""}
+      </div>
+      <h3>${escapeHtml(item.titulo || "Sem título")}</h3>
+      ${
+        imagens[0]
+          ? `<div class="cartao-imagem"><img src="${escapeHtml(imagens[0])}" alt="" loading="lazy" /></div>`
+          : ""
+      }
+      <div class="cartao-corpo ${corpoLongo ? "recolhido" : ""}">${escapeHtml(item.corpo || "")}</div>
+      ${corpoLongo ? '<button class="botao-ver-mais" type="button">Ver mais</button>' : ""}
+      ${
+        anexos.length > 0
+          ? `<ul class="lista-anexos">${anexos
+              .map((a) => `<li>📎 <a href="${escapeHtml(a)}" target="_blank" rel="noopener">${escapeHtml(nomeArquivoDeUrl(a))}</a></li>`)
+              .join("")}</ul>`
+          : ""
+      }
+      <div class="cartao-rodape">
+        <span class="cartao-data">${escapeHtml(dataExibida || item.publicadoEmTexto || "")}</span>
+        ${item.link ? `<a href="${escapeHtml(item.link)}" target="_blank" rel="noopener">Ver publicação original →</a>` : ""}
+      </div>
+    `;
+
+    const botaoVerMais = cartao.querySelector(".botao-ver-mais");
+    if (botaoVerMais) {
+      botaoVerMais.addEventListener("click", () => {
+        const corpo = cartao.querySelector(".cartao-corpo");
+        const recolhido = corpo.classList.toggle("recolhido");
+        botaoVerMais.textContent = recolhido ? "Ver mais" : "Ver menos";
+      });
+      // Começa mostrando fechado; clique alterna. Ajusta o texto certo já de saída.
+      botaoVerMais.textContent = "Ver mais";
+    }
+
+    lista.appendChild(cartao);
+  });
+}
+
+function ouvirFeed() {
+  if (pararDeOuvirFeed) pararDeOuvirFeed();
+  const q = query(collection(db, "noticias"), orderBy("atualizadoEm", "desc"), limit(60));
+  pararDeOuvirFeed = onSnapshot(q, (snap) => {
+    ultimosItensFeed = snap.docs.map((d) => d.data());
+    renderizarFeed();
+  });
+
+  if (!chipsConfigurados) {
+    chipsConfigurados = true;
+    document.querySelectorAll(".chip").forEach((chip) => {
+      chip.addEventListener("click", () => {
+        document.querySelectorAll(".chip").forEach((c) => c.classList.remove("chip-ativo"));
+        chip.classList.add("chip-ativo");
+        filtroFeedAtual = chip.dataset.filtro;
+        renderizarFeed();
+      });
+    });
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Prazos (eventos pessoais)
+// ---------------------------------------------------------------------------
+function ouvirEventos() {
   const user = auth.currentUser;
   if (!user) return;
   if (pararDeOuvirEventos) pararDeOuvirEventos();
@@ -224,17 +375,6 @@ function irParaHome() {
     });
   });
 }
-
-document.getElementById("btn-ir-inscricao").addEventListener("click", () => {
-  carregarInscricao();
-  showView("inscricao");
-});
-document.getElementById("btn-ir-config").addEventListener("click", () => {
-  carregarConfig();
-  showView("config");
-});
-document.getElementById("btn-voltar-home-1").addEventListener("click", irParaHome);
-document.getElementById("btn-voltar-home-2").addEventListener("click", irParaHome);
 
 // ---------------------------------------------------------------------------
 // Inscrição Enem/Sisu (edição manual)
