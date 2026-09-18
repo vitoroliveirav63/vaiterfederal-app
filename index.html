@@ -281,7 +281,7 @@
   .cabecalho-pagina h1 { margin: 0 0 4px; font-size: 1.35rem; }
   .cabecalho-pagina p { margin: 0; color: var(--tinta-2); font-size: 0.88rem; }
 
-  /* Filtros do feed */
+  /* Filtros */
   .chips {
     display: flex;
     gap: 8px;
@@ -334,6 +334,10 @@
   .etiqueta-fonte-UFC { background: var(--ufc-fundo); color: var(--ufc-tinta); }
   .etiqueta-fonte-IFCE { background: var(--ifce-fundo); color: var(--ifce-tinta); }
   .etiqueta-novo { background: var(--novo-fundo); color: var(--novo-tinta); }
+  .etiqueta-hoje { background: #FCE8E6; color: #A02419; }
+  .etiqueta-perto { background: var(--novo-fundo); color: var(--novo-tinta); }
+  .etiqueta-longe { background: var(--azul-suave); color: var(--ufc-tinta); }
+  .etiqueta-passou { background: #F1EBE6; color: var(--tinta-3); }
   .cartao-noticia h3 { margin: 0 0 10px; font-size: 1.02rem; line-height: 1.35; }
   .cartao-imagem {
     border-radius: 10px;
@@ -552,8 +556,13 @@
     <!-- Prazos -->
     <section id="pagina-prazos" class="pagina">
       <div class="cabecalho-pagina">
-        <h1>Seus prazos</h1>
-        <p>Datas de envio, matrícula e ajustes — com aviso antes de vencer.</p>
+        <h1>Prazos</h1>
+        <p>Toda data publicada pela UFC e pelo IFCE — chamada regular, lista de espera, suplentes, matrícula e documentação.</p>
+      </div>
+      <div class="chips">
+        <button class="chip chip-prazo chip-ativo" data-prazo-filtro="proximos" type="button">Próximos</button>
+        <button class="chip chip-prazo" data-prazo-filtro="passados" type="button">Já passaram</button>
+        <button class="chip chip-prazo" data-prazo-filtro="todos" type="button">Tudo</button>
       </div>
       <div id="lista-eventos"></div>
     </section>
