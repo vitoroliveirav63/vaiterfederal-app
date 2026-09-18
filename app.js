@@ -41,6 +41,7 @@ const VAPID_KEY =
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
+auth.languageCode = "pt";
 const db = getFirestore(app);
 const PROCESSO_ID = "principal";
 
