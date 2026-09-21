@@ -15,30 +15,31 @@
   :root {
     color-scheme: light;
 
-    /* Superfícies */
     --creme: #FBF4EF;
     --cartao: #FFFFFF;
     --cartao-2: #FDF9F6;
     --borda: #ECE0D8;
     --trilho: #F0E8E2;
 
-    /* Tinta */
     --tinta: #1C1917;
     --tinta-2: #6B6259;
     --tinta-3: #97897E;
 
-    /* Marca */
     --marinho: #12386E;
     --marinho-2: #0D2A52;
     --azul: #1D5FBF;
     --azul-suave: #E4EEFB;
 
-    /* Etiquetas */
     --ufc-fundo: #E4EEFB;  --ufc-tinta: #1B4E96;
     --ifce-fundo: #DEF0E4; --ifce-tinta: #0B5A33;
     --novo-fundo: #FDECD4; --novo-tinta: #92500B;
     --ok-fundo: #DEF0E4;   --ok-tinta: #0B5A33;
     --erro-fundo: #FCE8E6; --erro-tinta: #A02419;
+
+    /* Séries do gráfico de notas (uma cor por edição do Enem) */
+    --serie-1: #2a78d6;
+    --serie-2: #eb6834;
+    --serie-3: #1baf7a;
 
     --raio: 14px;
     --largura-lateral: 232px;
@@ -54,8 +55,6 @@
     -webkit-font-smoothing: antialiased;
   }
   img { max-width: 100%; display: block; }
-
-  /* Esconder — !important pra nunca perder pra nenhuma outra regra. */
   .oculto { display: none !important; }
 
   /* ------------------------------------------------------------------ */
@@ -69,7 +68,7 @@
   }
   @media (min-width: 820px) {
     .tela-cheia { max-width: 460px; padding: 72px 24px; }
-    .grade-duas-colunas { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .grade-duas-colunas { display: grid; grid-template-columns: 1fr 1fr; gap: 0 16px; }
   }
   .cartao-auth {
     background: var(--cartao);
@@ -104,6 +103,7 @@
     border-color: var(--azul);
     box-shadow: 0 0 0 3px rgba(29, 95, 191, 0.14);
   }
+  input[readonly] { background: var(--cartao-2); color: var(--tinta-2); }
   .botao {
     width: 100%;
     padding: 12px;
@@ -131,6 +131,9 @@
     cursor: pointer;
   }
   .botao-secundario:hover { background: var(--cartao-2); }
+  .botao-perigo { color: var(--erro-tinta); }
+  .linha-botoes { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 24px; }
+  .linha-botoes .botao, .linha-botoes .botao-secundario { width: auto; margin-top: 0; padding-left: 20px; padding-right: 20px; }
   .link-central {
     text-align: center;
     margin-top: 20px;
@@ -138,54 +141,34 @@
     font-size: 0.88rem;
   }
   .link-central button {
-    background: none;
-    border: none;
-    color: var(--azul);
-    font-size: 0.88rem;
-    font-family: inherit;
-    font-weight: 600;
-    cursor: pointer;
-    padding: 0;
+    background: none; border: none; color: var(--azul);
+    font-size: 0.88rem; font-family: inherit; font-weight: 600;
+    cursor: pointer; padding: 0;
   }
   .erro {
-    background: var(--erro-fundo);
-    color: var(--erro-tinta);
-    padding: 10px 12px;
-    border-radius: 10px;
-    font-size: 0.85rem;
-    margin-top: 16px;
+    background: var(--erro-fundo); color: var(--erro-tinta);
+    padding: 10px 12px; border-radius: 10px; font-size: 0.85rem; margin-top: 16px;
   }
   .aviso {
-    background: var(--ok-fundo);
-    color: var(--ok-tinta);
-    padding: 10px 12px;
-    border-radius: 10px;
-    font-size: 0.85rem;
-    margin-top: 16px;
+    background: var(--ok-fundo); color: var(--ok-tinta);
+    padding: 10px 12px; border-radius: 10px; font-size: 0.85rem; margin-top: 16px;
   }
   .carregando-caixa {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 100vh;
-    color: var(--tinta-3);
-    font-size: 0.92rem;
+    display: flex; align-items: center; justify-content: center;
+    min-height: 100vh; color: var(--tinta-3); font-size: 0.92rem;
   }
 
   /* ------------------------------------------------------------------ */
-  /* Painel principal: barra lateral (desktop) / abas embaixo (celular)  */
+  /* Painel principal                                                    */
   /* ------------------------------------------------------------------ */
-  #tela-app {
-    min-height: 100vh;
-    padding-bottom: var(--altura-tabs);
-  }
+  #tela-app { min-height: 100vh; padding-bottom: var(--altura-tabs); }
   @media (min-width: 820px) {
     #tela-app { display: flex; padding-bottom: 0; }
   }
 
+  /* Navegação: abas embaixo no celular, barra lateral azul no computador */
   .barra-lateral {
-    position: fixed;
-    bottom: 0; left: 0; right: 0;
+    position: fixed; bottom: 0; left: 0; right: 0;
     height: var(--altura-tabs);
     display: flex;
     background: var(--cartao);
@@ -193,143 +176,181 @@
     z-index: 10;
   }
   .barra-lateral button {
-    flex: 1;
-    background: none;
-    border: none;
-    color: var(--tinta-3);
-    font-size: 0.66rem;
-    font-family: inherit;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 3px;
-    cursor: pointer;
-    padding: 4px;
+    flex: 1; background: none; border: none;
+    color: var(--tinta-3); font-size: 0.66rem; font-family: inherit;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 3px; cursor: pointer; padding: 4px;
   }
   .barra-lateral button .icone-nav { font-size: 1.2rem; }
   .barra-lateral button.nav-ativo { color: var(--marinho); font-weight: 600; }
+  .marca { display: none; }
 
   @media (min-width: 820px) {
     .barra-lateral {
-      position: sticky;
-      top: 0;
-      left: auto;
-      width: var(--largura-lateral);
-      height: 100vh;
-      flex-direction: column;
-      gap: 3px;
+      position: sticky; top: 0; left: auto;
+      width: var(--largura-lateral); height: 100vh;
+      flex-direction: column; gap: 3px;
       border-top: none;
-      border-right: none;
       background: var(--marinho);
       padding: 26px 14px 22px;
       flex-shrink: 0;
     }
-    .barra-lateral .marca {
-      color: #fff;
-      font-weight: 700;
-      font-size: 0.98rem;
-      line-height: 1.25;
-      padding: 0 10px 26px;
+    .marca {
+      display: block; color: #fff; font-weight: 700;
+      font-size: 0.98rem; line-height: 1.25; padding: 0 10px 26px;
     }
-    .barra-lateral .marca span {
-      display: block;
-      font-weight: 400;
-      font-size: 0.72rem;
-      opacity: 0.7;
-      margin-top: 2px;
-    }
+    .marca span { display: block; font-weight: 400; font-size: 0.72rem; opacity: 0.7; margin-top: 2px; }
     .barra-lateral button {
-      flex: none;
-      flex-direction: row;
-      justify-content: flex-start;
-      gap: 11px;
-      font-size: 0.88rem;
-      padding: 10px 12px;
-      border-radius: 10px;
-      color: rgba(255,255,255,0.78);
+      flex: none; flex-direction: row; justify-content: flex-start;
+      gap: 11px; font-size: 0.88rem; padding: 10px 12px;
+      border-radius: 10px; color: rgba(255,255,255,0.78);
     }
     .barra-lateral button:hover { background: rgba(255,255,255,0.09); color: #fff; }
     .barra-lateral button .icone-nav { font-size: 1rem; }
-    .barra-lateral button.nav-ativo {
-      background: #fff;
-      color: var(--marinho);
-      font-weight: 600;
-    }
-    .barra-lateral .nav-sair {
-      margin-top: auto;
-      color: rgba(255,255,255,0.6);
-      font-size: 0.82rem;
-    }
+    .barra-lateral button.nav-ativo { background: #fff; color: var(--marinho); font-weight: 600; }
   }
-  .marca { display: none; }
-  @media (min-width: 820px) { .marca { display: block; } }
 
-  .conteudo-principal {
-    flex: 1;
-    min-width: 0;
-    padding: 24px 16px 32px;
+  .area-principal { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+
+  /* Barra superior com o avatar */
+  .barra-topo {
+    position: sticky; top: 0; z-index: 8;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 16px;
+    background: rgba(251, 244, 239, 0.94);
+    backdrop-filter: blur(6px);
+    border-bottom: 1px solid var(--borda);
   }
+  .topo-titulo { font-size: 0.95rem; font-weight: 700; color: var(--marinho); }
+  .topo-titulo span { display: none; }
   @media (min-width: 820px) {
-    .conteudo-principal { padding: 40px 44px 56px; max-width: 900px; }
+    .barra-topo { padding: 12px 44px; }
+    .topo-titulo { color: var(--tinta-2); font-weight: 600; font-size: 0.86rem; }
+    .topo-titulo b { display: none; }
+    .topo-titulo span { display: inline; }
   }
+  .menu-perfil { position: relative; }
+  .avatar {
+    width: 38px; height: 38px; border-radius: 50%;
+    background: var(--marinho); color: #fff;
+    border: 2px solid #fff; box-shadow: 0 0 0 1px var(--borda);
+    font-weight: 700; font-size: 0.82rem; font-family: inherit;
+    cursor: pointer; display: grid; place-items: center;
+  }
+  .avatar:focus-visible { outline: 2px solid var(--azul); outline-offset: 2px; }
+  .menu-suspenso {
+    position: absolute; right: 0; top: 48px; width: 250px;
+    background: var(--cartao);
+    border: 1px solid var(--borda); border-radius: 12px;
+    box-shadow: 0 14px 34px rgba(28, 25, 23, 0.14);
+    padding: 6px; z-index: 20;
+  }
+  .menu-cabecalho { padding: 10px 12px 12px; border-bottom: 1px solid var(--borda); margin-bottom: 6px; }
+  .menu-cabecalho strong { display: block; font-size: 0.92rem; }
+  .menu-cabecalho span { display: block; font-size: 0.78rem; color: var(--tinta-3); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; }
+  .menu-suspenso button {
+    display: flex; gap: 10px; align-items: center;
+    width: 100%; text-align: left;
+    background: none; border: none; border-radius: 8px;
+    padding: 10px 12px; font-size: 0.88rem; font-family: inherit;
+    color: var(--tinta); cursor: pointer;
+  }
+  .menu-suspenso button:hover { background: var(--cartao-2); }
+  .menu-suspenso .menu-sair { color: var(--erro-tinta); border-top: 1px solid var(--borda); border-radius: 0 0 8px 8px; margin-top: 6px; padding-top: 12px; }
+
+  /* Conteúdo + painel da direita (este só em telas largas) */
+  .corpo-com-lateral { flex: 1; }
+  .conteudo-principal { min-width: 0; padding: 22px 16px 32px; }
+  .painel-direito { display: none; }
+  @media (min-width: 820px) {
+    .conteudo-principal { padding: 32px 44px 56px; max-width: 900px; }
+  }
+  @media (min-width: 1200px) {
+    .corpo-com-lateral { display: flex; align-items: flex-start; gap: 8px; padding-right: 36px; }
+    .conteudo-principal { flex: 1; max-width: 860px; }
+    .painel-direito {
+      display: block; width: 310px; flex-shrink: 0;
+      position: sticky; top: 76px; padding-top: 32px;
+    }
+  }
+  .cartao-lateral {
+    background: var(--cartao); border: 1px solid var(--borda);
+    border-radius: var(--raio); padding: 16px 16px 12px; margin-bottom: 14px;
+  }
+  .cartao-lateral h3 {
+    margin: 0 0 10px; font-size: 0.68rem; letter-spacing: 0.07em;
+    text-transform: uppercase; color: var(--tinta-2); font-weight: 700;
+  }
+  .item-lateral {
+    display: flex; gap: 12px; align-items: flex-start;
+    padding: 10px 0; border-top: 1px solid var(--borda);
+    font-size: 0.82rem; color: var(--tinta-2); line-height: 1.4;
+  }
+  .item-lateral:first-of-type { border-top: none; padding-top: 2px; }
+  .data-caixa {
+    flex-shrink: 0; width: 44px; text-align: center;
+    background: var(--azul-suave); color: var(--ufc-tinta);
+    border-radius: 8px; padding: 5px 0; line-height: 1.1;
+  }
+  .data-caixa b { display: block; font-size: 1rem; }
+  .data-caixa small { font-size: 0.64rem; text-transform: uppercase; letter-spacing: 0.04em; }
+  .item-lateral strong { color: var(--tinta); font-size: 0.8rem; display: block; margin-bottom: 2px; }
+  .link-lateral {
+    display: block; background: none; border: none; padding: 8px 0 2px;
+    color: var(--azul); font-size: 0.82rem; font-weight: 600;
+    font-family: inherit; cursor: pointer; text-align: left; text-decoration: none;
+  }
+  .links-oficiais a {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 9px 0; border-top: 1px solid var(--borda);
+    color: var(--tinta); font-size: 0.84rem; text-decoration: none;
+  }
+  .links-oficiais a:first-of-type { border-top: none; padding-top: 2px; }
+  .links-oficiais a span { color: var(--tinta-3); font-size: 0.75rem; }
+  .links-oficiais a:hover { color: var(--azul); }
+  .nota-destaque { font-size: 1.9rem; font-weight: 700; letter-spacing: -0.02em; margin: 2px 0 2px; }
+  .texto-suave { color: var(--tinta-3); font-size: 0.78rem; }
+  .mini-notas { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; font-size: 0.8rem; margin: 12px 0 4px; }
+  .mini-notas span:nth-child(odd) { color: var(--tinta-2); }
+  .mini-notas span:nth-child(even) { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }
 
   .pagina { display: none; }
   .pagina.ativa { display: block; }
-
   .cabecalho-pagina { margin-bottom: 20px; }
   .cabecalho-pagina h1 { margin: 0 0 4px; font-size: 1.35rem; }
-  .cabecalho-pagina p { margin: 0; color: var(--tinta-2); font-size: 0.88rem; }
+  .cabecalho-pagina p { margin: 0; color: var(--tinta-2); font-size: 0.88rem; line-height: 1.5; }
 
   /* Filtros */
-  .chips {
-    display: flex;
-    gap: 8px;
-    margin-bottom: 18px;
-    flex-wrap: wrap;
-  }
+  .chips { display: flex; gap: 8px; margin-bottom: 18px; flex-wrap: wrap; }
   .chip {
-    background: var(--cartao);
-    border: 1px solid var(--borda);
-    color: var(--tinta-2);
-    padding: 7px 16px;
-    border-radius: 99px;
-    font-size: 0.82rem;
-    font-family: inherit;
-    font-weight: 500;
-    cursor: pointer;
+    background: var(--cartao); border: 1px solid var(--borda);
+    color: var(--tinta-2); padding: 7px 16px; border-radius: 99px;
+    font-size: 0.82rem; font-family: inherit; font-weight: 500; cursor: pointer;
   }
   .chip:hover { background: var(--cartao-2); }
-  .chip.chip-ativo {
-    background: var(--marinho);
-    border-color: var(--marinho);
-    color: #fff;
-    font-weight: 600;
+  .chip.chip-ativo { background: var(--marinho); border-color: var(--marinho); color: #fff; font-weight: 600; }
+
+  /* Sub-abas (Inscrição) */
+  .abas-internas {
+    display: inline-flex; gap: 4px; padding: 4px; margin-bottom: 20px;
+    background: var(--cartao); border: 1px solid var(--borda); border-radius: 12px;
   }
+  .abas-internas button {
+    border: none; background: none; border-radius: 9px;
+    padding: 9px 18px; font-size: 0.86rem; font-family: inherit; font-weight: 600;
+    color: var(--tinta-2); cursor: pointer;
+  }
+  .abas-internas button.aba-ativa { background: var(--marinho); color: #fff; }
 
   /* Cartões do feed */
   .cartao-noticia {
-    background: var(--cartao);
-    border: 1px solid var(--borda);
-    border-radius: var(--raio);
-    padding: 18px 18px 16px;
-    margin-bottom: 14px;
+    background: var(--cartao); border: 1px solid var(--borda);
+    border-radius: var(--raio); padding: 18px 18px 16px; margin-bottom: 14px;
   }
-  .cartao-topo-noticia {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    margin-bottom: 10px;
-    flex-wrap: wrap;
-  }
+  .cartao-topo-noticia { display: flex; align-items: center; gap: 6px; margin-bottom: 10px; flex-wrap: wrap; }
   .etiqueta {
-    font-size: 0.68rem;
-    font-weight: 600;
-    color: var(--tinta-2);
-    background: #F1EBE6;
-    padding: 4px 10px;
-    border-radius: 99px;
-    white-space: nowrap;
+    font-size: 0.68rem; font-weight: 600; color: var(--tinta-2);
+    background: #F1EBE6; padding: 4px 10px; border-radius: 99px; white-space: nowrap;
   }
   .etiqueta-fonte-UFC { background: var(--ufc-fundo); color: var(--ufc-tinta); }
   .etiqueta-fonte-IFCE { background: var(--ifce-fundo); color: var(--ifce-tinta); }
@@ -339,125 +360,137 @@
   .etiqueta-longe { background: var(--azul-suave); color: var(--ufc-tinta); }
   .etiqueta-passou { background: #F1EBE6; color: var(--tinta-3); }
   .cartao-noticia h3 { margin: 0 0 10px; font-size: 1.02rem; line-height: 1.35; }
-  .cartao-imagem {
-    border-radius: 10px;
-    overflow: hidden;
-    margin-bottom: 12px;
-    max-height: 260px;
-    background: var(--trilho);
-  }
+  .cartao-imagem { border-radius: 10px; overflow: hidden; margin-bottom: 12px; max-height: 260px; background: var(--trilho); }
   .cartao-imagem img { width: 100%; object-fit: cover; }
-  .cartao-corpo {
-    color: var(--tinta-2);
-    font-size: 0.89rem;
-    line-height: 1.6;
-    white-space: pre-wrap;
-  }
-  .cartao-corpo.recolhido {
-    max-height: 4.8em;
-    overflow: hidden;
-  }
+  .cartao-corpo { color: var(--tinta-2); font-size: 0.89rem; line-height: 1.6; white-space: pre-wrap; }
+  .cartao-corpo.recolhido { max-height: 4.8em; overflow: hidden; }
   .botao-ver-mais {
-    background: none;
-    border: none;
-    color: var(--azul);
-    font-size: 0.83rem;
-    font-family: inherit;
-    font-weight: 600;
-    cursor: pointer;
-    padding: 8px 0 0;
+    background: none; border: none; color: var(--azul);
+    font-size: 0.83rem; font-family: inherit; font-weight: 600; cursor: pointer; padding: 8px 0 0;
   }
-  .lista-anexos {
-    margin: 12px 0 0;
-    padding: 0;
-    list-style: none;
-    font-size: 0.83rem;
-  }
+  .lista-anexos { margin: 12px 0 0; padding: 0; list-style: none; font-size: 0.83rem; }
   .lista-anexos li { margin-bottom: 5px; }
   .lista-anexos a { color: var(--azul); }
   .cartao-rodape {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-top: 14px;
-    padding-top: 12px;
-    border-top: 1px solid var(--borda);
-    gap: 10px;
-    flex-wrap: wrap;
+    display: flex; justify-content: space-between; align-items: center;
+    margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--borda);
+    gap: 10px; flex-wrap: wrap;
   }
-  .cartao-rodape a {
-    color: var(--azul);
-    font-size: 0.82rem;
-    font-weight: 600;
-    text-decoration: none;
-  }
+  .cartao-rodape a { color: var(--azul); font-size: 0.82rem; font-weight: 600; text-decoration: none; }
   .cartao-data { color: var(--tinta-3); font-size: 0.78rem; }
 
   /* Cartões de prazos */
   .cartao-evento {
-    background: var(--cartao);
-    border: 1px solid var(--borda);
-    border-radius: var(--raio);
-    padding: 18px;
-    margin-bottom: 12px;
+    background: var(--cartao); border: 1px solid var(--borda);
+    border-radius: var(--raio); padding: 18px; margin-bottom: 12px;
   }
-  .cartao-topo {
-    display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-    gap: 10px;
-    margin-bottom: 4px;
-  }
+  .cartao-topo { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin-bottom: 4px; }
   .cartao-topo strong { font-size: 1rem; }
   .cartao-evento .botao-secundario { margin-top: 10px; width: auto; padding: 8px 16px; }
   .confirmado { color: var(--ifce-tinta); font-size: 0.86rem; font-weight: 600; margin-top: 8px; }
   .vazio {
-    color: var(--tinta-2);
-    text-align: center;
-    padding: 44px 20px;
-    background: var(--cartao);
-    border: 1px dashed var(--borda);
-    border-radius: var(--raio);
-    font-size: 0.9rem;
-    line-height: 1.6;
-    margin: 0;
+    color: var(--tinta-2); text-align: center; padding: 44px 20px;
+    background: var(--cartao); border: 1px dashed var(--borda); border-radius: var(--raio);
+    font-size: 0.9rem; line-height: 1.6; margin: 0;
   }
+  .vazio .botao { width: auto; padding: 10px 20px; margin-top: 16px; }
 
-  /* Formulários dentro do painel */
+  /* Formulários */
   .painel-form {
-    background: var(--cartao);
-    border: 1px solid var(--borda);
-    border-radius: var(--raio);
-    padding: 22px 20px 24px;
+    background: var(--cartao); border: 1px solid var(--borda);
+    border-radius: var(--raio); padding: 22px 20px 24px; margin-bottom: 16px;
   }
-  .painel-form h2 {
-    font-size: 0.72rem;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: var(--tinta-2);
-    margin: 0 0 4px;
-    font-weight: 700;
+  .titulo-secao {
+    font-size: 0.72rem; letter-spacing: 0.06em; text-transform: uppercase;
+    color: var(--tinta-2); margin: 26px 0 2px; font-weight: 700;
+    padding-top: 18px; border-top: 1px solid var(--borda);
   }
-  .painel-form .grade-duas-colunas + h2 { margin-top: 26px; }
+  .titulo-secao:first-child { margin-top: 0; padding-top: 0; border-top: none; }
+  .grade-campos { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0 14px; }
+  .grade-notas { display: grid; grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); gap: 0 12px; }
+  .grade-competencias { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0 8px; }
+  .campo-check { display: flex; align-items: center; gap: 10px; margin-top: 36px; font-size: 0.9rem; }
+  .campo-check input { width: auto; accent-color: var(--marinho); transform: scale(1.2); }
+  .lido-do-pdf input, .lido-do-pdf select { background: #EEF4FC; border-color: #B9D0F0; }
+  .legenda-pdf { font-size: 0.8rem; color: var(--tinta-2); margin: 14px 0 0; display: flex; align-items: center; gap: 8px; }
+  .legenda-pdf i { display: inline-block; width: 14px; height: 14px; border-radius: 4px; background: #EEF4FC; border: 1px solid #B9D0F0; }
+
+  .zona-pdf {
+    border: 2px dashed #D9CBC1; border-radius: var(--raio);
+    padding: 30px 20px; text-align: center; background: var(--cartao);
+    cursor: pointer; transition: background 0.15s, border-color 0.15s;
+    margin-bottom: 16px;
+  }
+  .zona-pdf:hover, .zona-pdf.arrastando { border-color: var(--azul); background: var(--azul-suave); }
+  .zona-pdf .icone-zona { font-size: 1.8rem; }
+  .zona-pdf strong { display: block; margin: 8px 0 4px; font-size: 0.98rem; }
+  .zona-pdf p { margin: 0; color: var(--tinta-2); font-size: 0.84rem; line-height: 1.5; }
+  .zona-pdf .privacidade { margin-top: 10px; font-size: 0.78rem; color: var(--ok-tinta); }
+  .status-pdf { border-radius: 10px; padding: 11px 14px; font-size: 0.86rem; margin-bottom: 16px; line-height: 1.5; }
+  .status-pdf.lendo { background: var(--azul-suave); color: var(--ufc-tinta); }
+  .status-pdf.ok { background: var(--ok-fundo); color: var(--ok-tinta); }
+  .status-pdf.falha { background: var(--erro-fundo); color: var(--erro-tinta); }
+
+  /* Acompanhamento: indicadores, gráfico, tabela, cartões por edição */
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 16px; }
+  .tile { background: var(--cartao); border: 1px solid var(--borda); border-radius: 12px; padding: 14px 15px; }
+  .tile-rotulo { font-size: 0.64rem; letter-spacing: 0.07em; text-transform: uppercase; color: var(--tinta-2); font-weight: 700; }
+  .tile-valor { font-size: 1.6rem; font-weight: 700; margin-top: 6px; letter-spacing: -0.01em; }
+  .tile-valor small { font-size: 0.78rem; font-weight: 600; color: var(--tinta-2); display: block; letter-spacing: 0; margin-top: 1px; }
+  .tile-pe { font-size: 0.76rem; color: var(--tinta-3); margin-top: 4px; }
+  .delta-sobe { color: var(--ok-tinta); font-weight: 600; }
+  .delta-desce { color: var(--erro-tinta); font-weight: 600; }
+
+  .painel-grafico { background: var(--cartao); border: 1px solid var(--borda); border-radius: var(--raio); padding: 18px 18px 8px; margin-bottom: 16px; }
+  .painel-grafico h3 { margin: 0 0 2px; font-size: 0.98rem; }
+  .painel-grafico .sub { margin: 0 0 12px; color: var(--tinta-3); font-size: 0.8rem; }
+  .legenda { display: flex; gap: 16px; flex-wrap: wrap; font-size: 0.8rem; color: var(--tinta-2); margin-bottom: 6px; }
+  .legenda span { display: inline-flex; align-items: center; gap: 6px; }
+  .legenda i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+  .grafico svg { width: 100%; height: auto; display: block; overflow: visible; }
+  .grafico .barra { cursor: default; }
+  .grafico .barra:hover { opacity: 0.8; }
+
+  .tabela-rolagem { overflow-x: auto; }
+  .tabela-notas { width: 100%; border-collapse: collapse; font-size: 0.86rem; font-variant-numeric: tabular-nums; }
+  .tabela-notas th, .tabela-notas td { padding: 9px 10px; border-bottom: 1px solid var(--borda); text-align: right; white-space: nowrap; }
+  .tabela-notas th:first-child, .tabela-notas td:first-child { text-align: left; }
+  .tabela-notas th { font-size: 0.68rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--tinta-2); font-weight: 700; }
+  .tabela-notas tr.linha-media td { font-weight: 700; border-bottom: none; }
+
+  .cartao-inscricao { background: var(--cartao); border: 1px solid var(--borda); border-radius: var(--raio); padding: 18px; margin-bottom: 14px; }
+  .cartao-inscricao-topo { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+  .cartao-inscricao-topo h3 { margin: 0; font-size: 1.1rem; }
+  .cartao-inscricao-topo .texto-suave { display: block; margin-top: 3px; }
+  .media-selo { text-align: right; }
+  .media-selo b { display: block; font-size: 1.4rem; letter-spacing: -0.01em; }
+  .notas-grade { display: grid; grid-template-columns: repeat(auto-fit, minmax(112px, 1fr)); gap: 8px; }
+  .nota-item { background: var(--cartao-2); border: 1px solid var(--borda); border-radius: 10px; padding: 9px 11px; }
+  .nota-item span { display: block; font-size: 0.66rem; letter-spacing: 0.05em; text-transform: uppercase; color: var(--tinta-2); font-weight: 600; }
+  .nota-item b { font-size: 1.08rem; font-variant-numeric: tabular-nums; }
+  .dados-lista { margin: 14px 0 0; display: grid; grid-template-columns: max-content 1fr; gap: 6px 14px; font-size: 0.85rem; }
+  .dados-lista dt { color: var(--tinta-3); }
+  .dados-lista dd { margin: 0; color: var(--tinta); }
+  .acoes-cartao { display: flex; gap: 8px; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--borda); }
+  .acoes-cartao .botao-secundario { width: auto; padding: 7px 14px; font-size: 0.84rem; }
+
+  /* Perfil */
+  .perfil-cabecalho { display: flex; gap: 16px; align-items: center; margin-bottom: 18px; }
+  .avatar-grande {
+    width: 64px; height: 64px; border-radius: 50%;
+    background: var(--marinho); color: #fff;
+    display: grid; place-items: center; font-weight: 700; font-size: 1.3rem; flex-shrink: 0;
+  }
+  .perfil-cabecalho h2 { margin: 0; font-size: 1.2rem; }
+  .perfil-cabecalho p { margin: 3px 0 0; color: var(--tinta-2); font-size: 0.86rem; }
+
   .toggle-linha {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 14px 0;
-    border-bottom: 1px solid var(--borda);
-    font-size: 0.92rem;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 0; border-bottom: 1px solid var(--borda); font-size: 0.92rem;
   }
   .toggle-linha:last-of-type { border-bottom: none; }
-  .toggle-linha input[type="checkbox"] {
-    width: auto;
-    accent-color: var(--marinho);
-    transform: scale(1.25);
-  }
-  .info-conta {
-    color: var(--tinta-2);
-    font-size: 0.88rem;
-    margin: 0 0 16px;
-  }
+  .toggle-linha input[type="checkbox"] { width: auto; accent-color: var(--marinho); transform: scale(1.25); }
+  .info-conta { color: var(--tinta-2); font-size: 0.88rem; margin: 0 0 16px; }
   .info-conta span { color: var(--tinta); font-weight: 600; }
 </style>
 </head>
@@ -516,147 +549,265 @@
   </p>
   <div class="cartao-auth">
     <button class="botao" id="btn-ja-confirmei" type="button" style="margin-top:0">Já confirmei</button>
-    <button class="botao-secundario" id="btn-reenviar-email" type="button" style="margin-top:12px">
-      Reenviar e-mail
-    </button>
-    <button class="botao-secundario" id="btn-logout" type="button" style="margin-top:12px">
-      Usar outra conta
-    </button>
+    <button class="botao-secundario" id="btn-reenviar-email" type="button" style="margin-top:12px">Reenviar e-mail</button>
+    <button class="botao-secundario" id="btn-logout" type="button" style="margin-top:12px">Usar outra conta</button>
     <div id="erro-verificar" class="aviso" hidden></div>
   </div>
 </section>
 
-<!-- App (painel principal, depois de logado) -->
+<!-- App (depois de logado) -->
 <section id="tela-app" class="oculto">
-  <nav class="barra-lateral">
+  <nav class="barra-lateral" aria-label="Navegação principal">
     <div class="marca">Vai ter federal<span>sim!</span></div>
     <button id="nav-feed" type="button"><span class="icone-nav">📰</span><span>Feed</span></button>
     <button id="nav-prazos" type="button"><span class="icone-nav">📅</span><span>Prazos</span></button>
     <button id="nav-inscricao" type="button"><span class="icone-nav">📝</span><span>Inscrição</span></button>
     <button id="nav-config" type="button"><span class="icone-nav">⚙️</span><span>Ajustes</span></button>
-    <button id="btn-logout-config" type="button" class="nav-sair"><span class="icone-nav">🚪</span><span>Sair</span></button>
   </nav>
 
-  <main class="conteudo-principal">
+  <div class="area-principal">
+    <header class="barra-topo">
+      <div class="topo-titulo"><b>Vai ter federal, sim!</b><span id="topo-titulo">Olá!</span></div>
+      <div class="menu-perfil">
+        <button id="btn-avatar" class="avatar" type="button" aria-haspopup="menu" aria-expanded="false" aria-label="Abrir menu do perfil">?</button>
+        <div id="menu-perfil" class="menu-suspenso oculto" role="menu">
+          <div class="menu-cabecalho">
+            <strong id="menu-nome">Sua conta</strong>
+            <span id="menu-email"></span>
+          </div>
+          <button id="menu-ver-perfil" type="button" role="menuitem">👤 Meu perfil</button>
+          <button id="menu-editar-perfil" type="button" role="menuitem">✏️ Editar perfil</button>
+          <button id="btn-logout-config" type="button" role="menuitem" class="menu-sair">🚪 Sair</button>
+        </div>
+      </div>
+    </header>
 
-    <!-- Feed -->
-    <section id="pagina-feed" class="pagina ativa">
-      <div class="cabecalho-pagina">
-        <h1>Feed</h1>
-        <p>Tudo que mudou nos sites da UFC e do IFCE, em um lugar só.</p>
-      </div>
-      <div class="chips">
-        <button class="chip chip-ativo" data-filtro="todos" type="button">Tudo</button>
-        <button class="chip" data-filtro="UFC" type="button">UFC</button>
-        <button class="chip" data-filtro="IFCE" type="button">IFCE</button>
-      </div>
-      <div id="feed-lista"></div>
-    </section>
+    <div class="corpo-com-lateral">
+      <main class="conteudo-principal">
 
-    <!-- Prazos -->
-    <section id="pagina-prazos" class="pagina">
-      <div class="cabecalho-pagina">
-        <h1>Prazos</h1>
-        <p>Toda data publicada pela UFC e pelo IFCE — chamada regular, lista de espera, suplentes, matrícula e documentação.</p>
-      </div>
-      <div class="chips">
-        <button class="chip chip-prazo chip-ativo" data-prazo-filtro="proximos" type="button">Próximos</button>
-        <button class="chip chip-prazo" data-prazo-filtro="passados" type="button">Já passaram</button>
-        <button class="chip chip-prazo" data-prazo-filtro="todos" type="button">Tudo</button>
-      </div>
-      <div id="lista-eventos"></div>
-    </section>
+        <!-- Feed -->
+        <section id="pagina-feed" class="pagina ativa">
+          <div class="cabecalho-pagina">
+            <h1>Feed</h1>
+            <p>Tudo que mudou nos sites da UFC e do IFCE, em um lugar só.</p>
+          </div>
+          <div class="chips">
+            <button class="chip chip-ativo" data-filtro="todos" type="button">Tudo</button>
+            <button class="chip" data-filtro="UFC" type="button">UFC</button>
+            <button class="chip" data-filtro="IFCE" type="button">IFCE</button>
+          </div>
+          <div id="feed-lista"></div>
+        </section>
 
-    <!-- Inscrição Enem/Sisu -->
-    <section id="pagina-inscricao" class="pagina">
-      <div class="cabecalho-pagina">
-        <h1>Enem / Sisu</h1>
-        <p>Seus dados de inscrição e a posição na lista de espera.</p>
-      </div>
-      <div class="painel-form">
-        <form id="form-inscricao">
-          <h2>Enem</h2>
-          <div class="grade-duas-colunas">
-            <div>
-              <label for="insc-enem-inscricao">Número de inscrição</label>
-              <input type="text" id="insc-enem-inscricao" />
+        <!-- Prazos -->
+        <section id="pagina-prazos" class="pagina">
+          <div class="cabecalho-pagina">
+            <h1>Prazos</h1>
+            <p>Toda data publicada pela UFC e pelo IFCE — chamada regular, lista de espera, suplentes, matrícula e documentação.</p>
+          </div>
+          <div class="chips">
+            <button class="chip chip-prazo chip-ativo" data-prazo-filtro="proximos" type="button">Próximos</button>
+            <button class="chip chip-prazo" data-prazo-filtro="passados" type="button">Já passaram</button>
+            <button class="chip chip-prazo" data-prazo-filtro="todos" type="button">Tudo</button>
+          </div>
+          <div id="lista-eventos"></div>
+        </section>
+
+        <!-- Inscrição -->
+        <section id="pagina-inscricao" class="pagina">
+          <div class="cabecalho-pagina">
+            <h1>Inscrição</h1>
+            <p>Cadastre suas inscrições do Enem a partir do PDF e acompanhe a evolução das suas notas.</p>
+          </div>
+          <div class="abas-internas" role="tablist">
+            <button id="subaba-cadastro" type="button" role="tab">Cadastro</button>
+            <button id="subaba-acompanhamento" type="button" role="tab">Acompanhamento</button>
+          </div>
+
+          <!-- Cadastro -->
+          <div id="painel-cadastro">
+            <div id="zona-pdf" class="zona-pdf" tabindex="0" role="button" aria-label="Escolher PDF do Enem">
+              <div class="icone-zona">📄</div>
+              <strong>Arraste o PDF do Enem aqui ou clique para escolher</strong>
+              <p>Pode ser o boletim de notas ou o cartão de confirmação da inscrição.<br />Se tiver os dois, anexe os dois — eu junto as informações.</p>
+              <p class="privacidade">🔒 O arquivo é lido aqui no seu aparelho e não é enviado para lugar nenhum. CPF e nome são ignorados.</p>
+              <input id="insc-pdf" type="file" accept="application/pdf,.pdf" multiple hidden />
             </div>
-            <div>
-              <label for="insc-enem-local">Local de prova</label>
-              <input type="text" id="insc-enem-local" />
-            </div>
-            <div>
-              <label for="insc-enem-dia1">1º dia de prova</label>
-              <input type="date" id="insc-enem-dia1" />
-            </div>
-            <div>
-              <label for="insc-enem-dia2">2º dia de prova</label>
-              <input type="date" id="insc-enem-dia2" />
+            <div id="pdf-status" class="status-pdf oculto"></div>
+
+            <div class="painel-form">
+              <form id="form-inscricao" novalidate>
+                <div class="titulo-secao">Identificação</div>
+                <div class="grade-campos">
+                  <div><label for="insc-ano">Ano do Enem *</label><input type="number" id="insc-ano" min="1998" max="2100" required /></div>
+                  <div><label for="insc-numero">Nº de inscrição</label><input type="text" id="insc-numero" inputmode="numeric" /></div>
+                  <div>
+                    <label for="insc-lingua">Língua estrangeira</label>
+                    <select id="insc-lingua"><option value="">—</option><option>Inglês</option><option>Espanhol</option></select>
+                  </div>
+                  <div class="campo-check"><input type="checkbox" id="insc-treineiro" /><span>Fiz como treineiro</span></div>
+                </div>
+
+                <div class="titulo-secao">Local e datas de prova</div>
+                <div class="grade-campos">
+                  <div><label for="insc-escola">Local de prova</label><input type="text" id="insc-escola" /></div>
+                  <div><label for="insc-endereco">Endereço</label><input type="text" id="insc-endereco" /></div>
+                </div>
+                <div class="grade-campos">
+                  <div><label for="insc-municipio">Município/UF</label><input type="text" id="insc-municipio" /></div>
+                  <div><label for="insc-sala">Sala</label><input type="text" id="insc-sala" /></div>
+                  <div><label for="insc-bloco">Bloco</label><input type="text" id="insc-bloco" /></div>
+                </div>
+                <div class="grade-campos">
+                  <div><label for="insc-dia1">1º dia de prova</label><input type="date" id="insc-dia1" /></div>
+                  <div><label for="insc-dia2">2º dia de prova</label><input type="date" id="insc-dia2" /></div>
+                </div>
+
+                <div class="titulo-secao">Notas</div>
+                <div class="grade-notas">
+                  <div><label for="insc-nota-lc">Linguagens</label><input type="number" id="insc-nota-lc" step="0.1" min="0" max="1000" /></div>
+                  <div><label for="insc-nota-ch">C. Humanas</label><input type="number" id="insc-nota-ch" step="0.1" min="0" max="1000" /></div>
+                  <div><label for="insc-nota-cn">C. da Natureza</label><input type="number" id="insc-nota-cn" step="0.1" min="0" max="1000" /></div>
+                  <div><label for="insc-nota-mt">Matemática</label><input type="number" id="insc-nota-mt" step="0.1" min="0" max="1000" /></div>
+                  <div><label for="insc-nota-redacao">Redação</label><input type="number" id="insc-nota-redacao" step="1" min="0" max="1000" /></div>
+                  <div><label for="insc-media">Média geral</label><input type="text" id="insc-media" readonly tabindex="-1" placeholder="calculada" /></div>
+                </div>
+                <label style="margin-top:18px">Competências da redação (0 a 200)</label>
+                <div class="grade-competencias">
+                  <div><input type="number" id="insc-comp-1" min="0" max="200" step="20" placeholder="C1" aria-label="Competência 1" /></div>
+                  <div><input type="number" id="insc-comp-2" min="0" max="200" step="20" placeholder="C2" aria-label="Competência 2" /></div>
+                  <div><input type="number" id="insc-comp-3" min="0" max="200" step="20" placeholder="C3" aria-label="Competência 3" /></div>
+                  <div><input type="number" id="insc-comp-4" min="0" max="200" step="20" placeholder="C4" aria-label="Competência 4" /></div>
+                  <div><input type="number" id="insc-comp-5" min="0" max="200" step="20" placeholder="C5" aria-label="Competência 5" /></div>
+                </div>
+
+                <div class="titulo-secao">Sisu (opcional)</div>
+                <div class="grade-campos">
+                  <div><label for="insc-sisu-curso">Curso</label><input type="text" id="insc-sisu-curso" /></div>
+                  <div><label for="insc-sisu-turno">Turno</label><input type="text" id="insc-sisu-turno" placeholder="Manhã, noite, integral..." /></div>
+                  <div>
+                    <label for="insc-sisu-status">Situação</label>
+                    <select id="insc-sisu-status">
+                      <option value="">—</option>
+                      <option value="classificado">Classificado</option>
+                      <option value="lista_espera">Lista de espera</option>
+                      <option value="suplente">Suplente</option>
+                      <option value="matriculado">Matriculado</option>
+                      <option value="nao_classificado">Não classificado</option>
+                    </select>
+                  </div>
+                  <div><label for="insc-sisu-posicao">Posição na lista</label><input type="number" id="insc-sisu-posicao" min="0" /></div>
+                </div>
+
+                <p id="legenda-pdf" class="legenda-pdf oculto"><i></i> Campos destacados vieram do PDF — confira antes de salvar.</p>
+                <div class="linha-botoes">
+                  <button class="botao" type="submit">Salvar inscrição</button>
+                  <button class="botao-secundario" id="btn-limpar-inscricao" type="button">Limpar</button>
+                </div>
+                <div id="msg-inscricao-salva" class="aviso" hidden></div>
+                <div id="erro-inscricao" class="erro" hidden></div>
+              </form>
             </div>
           </div>
 
-          <h2>Sisu</h2>
-          <div class="grade-duas-colunas">
-            <div>
-              <label for="insc-sisu-curso">Curso pretendido</label>
-              <input type="text" id="insc-sisu-curso" />
+          <!-- Acompanhamento -->
+          <div id="painel-acompanhamento" class="oculto">
+            <div id="acompanhamento-conteudo"></div>
+          </div>
+        </section>
+
+        <!-- Ajustes -->
+        <section id="pagina-config" class="pagina">
+          <div class="cabecalho-pagina">
+            <h1>Ajustes</h1>
+            <p>Como e quando você quer ser avisado.</p>
+          </div>
+          <div class="painel-form">
+            <form id="form-config">
+              <div class="toggle-linha"><span>Notificação push</span><input type="checkbox" id="config-push" /></div>
+              <div class="toggle-linha"><span>Notificação por e-mail</span><input type="checkbox" id="config-email-toggle" /></div>
+              <div class="toggle-linha"><span>Alerta urgente (prazo em menos de 24h)</span><input type="checkbox" id="config-urgente" /></div>
+              <button class="botao" type="submit">Salvar preferências</button>
+              <div id="msg-config-salvo" class="aviso" hidden></div>
+            </form>
+          </div>
+        </section>
+
+        <!-- Perfil -->
+        <section id="pagina-perfil" class="pagina">
+          <div class="cabecalho-pagina">
+            <h1>Perfil</h1>
+            <p>Seus dados de conta.</p>
+          </div>
+
+          <div id="perfil-visualizar" class="painel-form">
+            <div class="perfil-cabecalho">
+              <div id="perfil-avatar" class="avatar-grande">?</div>
+              <div>
+                <h2 id="perfil-nome-exibicao">—</h2>
+                <p id="perfil-email-exibicao"></p>
+              </div>
             </div>
-            <div>
-              <label for="insc-sisu-turno">Turno</label>
-              <input type="text" id="insc-sisu-turno" placeholder="Manhã, tarde, integral..." />
-            </div>
-            <div>
-              <label for="insc-sisu-inscricao">Número de inscrição no Sisu</label>
-              <input type="text" id="insc-sisu-inscricao" />
-            </div>
-            <div>
-              <label for="insc-sisu-status">Status</label>
-              <select id="insc-sisu-status">
-                <option value="classificado">Classificado</option>
-                <option value="lista_espera">Lista de espera</option>
-                <option value="nao_classificado">Não classificado</option>
-              </select>
-            </div>
-            <div>
-              <label for="insc-sisu-posicao">Posição na lista de espera</label>
-              <input type="number" id="insc-sisu-posicao" min="0" />
+            <dl id="perfil-dados" class="dados-lista"></dl>
+            <div class="linha-botoes">
+              <button class="botao" id="btn-editar-perfil" type="button">Editar perfil</button>
             </div>
           </div>
 
-          <button class="botao" type="submit">Salvar</button>
-          <div id="msg-inscricao-salva" class="aviso" hidden>Salvo!</div>
-        </form>
-      </div>
-    </section>
+          <div id="perfil-editar" class="oculto">
+            <div class="painel-form">
+              <form id="form-perfil">
+                <div class="titulo-secao">Dados pessoais</div>
+                <div class="grade-campos">
+                  <div><label for="perfil-nome">Nome completo</label><input type="text" id="perfil-nome" autocomplete="name" /></div>
+                  <div><label for="perfil-apelido">Como prefere ser chamado</label><input type="text" id="perfil-apelido" autocomplete="nickname" /></div>
+                </div>
+                <div class="grade-campos">
+                  <div><label for="perfil-curso">Curso atual</label><input type="text" id="perfil-curso" /></div>
+                  <div><label for="perfil-instituicao">Instituição</label><input type="text" id="perfil-instituicao" /></div>
+                  <div><label for="perfil-cidade">Cidade</label><input type="text" id="perfil-cidade" autocomplete="address-level2" /></div>
+                </div>
+                <label for="perfil-email">E-mail de acesso</label>
+                <input type="email" id="perfil-email" readonly tabindex="-1" />
+                <div class="linha-botoes">
+                  <button class="botao" type="submit">Salvar</button>
+                  <button class="botao-secundario" id="btn-cancelar-perfil" type="button">Cancelar</button>
+                </div>
+                <div id="msg-perfil" class="aviso" hidden></div>
+              </form>
+            </div>
+            <div class="painel-form">
+              <div class="titulo-secao">Segurança</div>
+              <p class="info-conta" style="margin-top:10px">Para trocar a senha, a gente te manda um link seguro por e-mail.</p>
+              <button class="botao-secundario" id="btn-trocar-senha" type="button" style="width:auto;padding:10px 18px">Enviar link para trocar a senha</button>
+              <div id="msg-senha" class="aviso" hidden></div>
+            </div>
+          </div>
+        </section>
 
-    <!-- Configurações -->
-    <section id="pagina-config" class="pagina">
-      <div class="cabecalho-pagina">
-        <h1>Ajustes</h1>
-        <p>Como e quando você quer ser avisado.</p>
-      </div>
-      <div class="painel-form">
-        <p class="info-conta">Conta: <span id="config-email"></span></p>
-        <form id="form-config">
-          <div class="toggle-linha">
-            <span>Notificação push</span>
-            <input type="checkbox" id="config-push" />
-          </div>
-          <div class="toggle-linha">
-            <span>Notificação por e-mail</span>
-            <input type="checkbox" id="config-email-toggle" />
-          </div>
-          <div class="toggle-linha">
-            <span>Alerta urgente (prazo em menos de 24h)</span>
-            <input type="checkbox" id="config-urgente" />
-          </div>
-          <button class="botao" type="submit">Salvar preferências</button>
-          <div id="msg-config-salvo" class="aviso" hidden></div>
-        </form>
-      </div>
-    </section>
+      </main>
 
-  </main>
+      <!-- Painel da direita (telas largas) -->
+      <aside class="painel-direito" aria-label="Resumo">
+        <div class="cartao-lateral">
+          <h3>Próximos prazos</h3>
+          <div id="lateral-prazos"></div>
+          <button class="link-lateral" id="lateral-ver-prazos" type="button">Ver todos os prazos →</button>
+        </div>
+        <div class="cartao-lateral">
+          <h3>Seu último Enem</h3>
+          <div id="lateral-enem"></div>
+        </div>
+        <div class="cartao-lateral links-oficiais">
+          <h3>Links oficiais</h3>
+          <a href="https://enem.inep.gov.br/participante/" target="_blank" rel="noopener">Página do Participante (Enem) <span>↗</span></a>
+          <a href="https://acessounico.mec.gov.br/sisu" target="_blank" rel="noopener">Portal do Sisu <span>↗</span></a>
+          <a href="https://sisu.ufc.br/pt/" target="_blank" rel="noopener">Sisu na UFC <span>↗</span></a>
+          <a href="https://portal.ifce.edu.br/campus/fortaleza/" target="_blank" rel="noopener">IFCE Fortaleza <span>↗</span></a>
+        </div>
+      </aside>
+    </div>
+  </div>
 </section>
 
 <script type="module" src="app.js"></script>
