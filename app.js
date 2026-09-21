@@ -28,8 +28,8 @@ import {
   getToken,
   isSupported,
 } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-messaging.js";
-import { lerPdfDoEnem } from "./leitor-pdf.js";
-import * as DICAS from "./dicas-enem.js";
+import { lerPdfDoEnem } from "./leitor-pdf.js?v=20260921b";
+import * as DICAS from "./dicas-enem.js?v=20260921b";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDuG755MrvWbhSRPaPtSuVM_K8QNNkopHU",
@@ -42,6 +42,31 @@ const firebaseConfig = {
 };
 const VAPID_KEY =
   "BGHMUlmyuhUqOIPajywOZBX-ZfwSRwObp_GGt7lVgo4-RYWsr2RcdQMeIwtVaZxOm18-mp3FhQlycfja42SpvKQ";
+
+// ---------------------------------------------------------------------------
+// Atualização automática: o navegador guarda os arquivos do app por um tempo
+// e pode continuar mostrando a versão velha depois de um upload. Aqui o app
+// busca o index.html mais novo (sem cache) e, se a versão do app.js citada
+// lá for outra, recarrega sozinho uma vez.
+// ---------------------------------------------------------------------------
+const VERSAO_CARREGADA = new URL(import.meta.url).searchParams.get("v") || "";
+async function conferirVersao() {
+  try {
+    const html = await (await fetch("./index.html?nocache=" + Date.now(), { cache: "no-store" })).text();
+    const nova = (html.match(/app\.js\?v=([\w.-]+)/) || [])[1];
+    if (!nova || nova === VERSAO_CARREGADA) return;
+    const chave = "recarregouPara:" + nova;
+    if (sessionStorage.getItem(chave)) return; // já tentou, não entra em laço
+    sessionStorage.setItem(chave, "1");
+    location.reload();
+  } catch {
+    /* sem internet ou sem sessionStorage: segue com o que tem */
+  }
+}
+conferirVersao();
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible") conferirVersao();
+});
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
