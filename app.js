@@ -20,6 +20,7 @@ import {
   query,
   orderBy,
   limit,
+  where,
   onSnapshot,
   serverTimestamp,
 } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
@@ -28,8 +29,8 @@ import {
   getToken,
   isSupported,
 } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-messaging.js";
-import { lerPdfDoEnem } from "./leitor-pdf.js?v=20260921b";
-import * as DICAS from "./dicas-enem.js?v=20260921b";
+import { lerPdfDoEnem } from "./leitor-pdf.js?v=20260922b";
+import * as DICAS from "./dicas-enem.js?v=20260922b";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDuG755MrvWbhSRPaPtSuVM_K8QNNkopHU",
@@ -301,10 +302,13 @@ function entrarNoApp() {
     perfilAtual = snap.data() || {};
     atualizarIdentidade();
   });
-  escutar("prazos", query(collection(db, "prazos"), orderBy("data", "asc"), limit(400)), (snap) => {
+  escutar("prazos", query(collection(db, "prazos"), where("dataLimite", ">=", new Date(Date.now() - 200 * 24 * 60 * 60 * 1000)), orderBy("dataLimite", "asc"), limit(2000)), (snap) => {
     todosOsPrazos = snap.docs.map((d) => {
       const dados = d.data();
-      return { id: d.id, ...dados, quando: dados.data?.toDate ? dados.data.toDate() : null };
+      const quando = dados.data?.toDate ? dados.data.toDate() : null;
+      const fim = dados.dataFim?.toDate ? dados.dataFim.toDate() : null;
+      const limite = dados.dataLimite?.toDate ? dados.dataLimite.toDate() : fim || quando;
+      return { id: d.id, ...dados, quando, fim, limite };
     });
     renderizarPrazos();
     renderizarLateral();
@@ -508,7 +512,8 @@ function renderizarFeed() {
     cartao.innerHTML = `
       <div class="cartao-topo-noticia">
         <span class="etiqueta etiqueta-fonte-${escapeHtml(item.fonte || "")}">${escapeHtml(item.fonte || "")}</span>
-        <span class="etiqueta">${item.categoria === "noticia" ? "Notícia" : "Documento"}</span>
+        <span class="etiqueta">${item.categoria === "noticia" ? "Notícia" : item.categoria === "edital" ? "Edital" : "Documento"}</span>
+        ${item.origem ? `<span class="etiqueta etiqueta-origem">${escapeHtml(item.origem)}</span>` : ""}
         ${marcadorNovo ? '<span class="etiqueta etiqueta-novo">Atualizado</span>' : ""}
       </div>
       <h3>${escapeHtml(item.titulo || "Sem título")}</h3>
@@ -553,7 +558,6 @@ document.querySelectorAll("#pagina-feed .chip").forEach((chip) => {
 // ---------------------------------------------------------------------------
 let todosOsPrazos = [];
 let prazosConfirmados = new Set();
-let filtroPrazoAtual = "proximos";
 const UM_DIA = 24 * 60 * 60 * 1000;
 
 function inicioDoDia(data) {
@@ -568,13 +572,37 @@ function diaDoPrazo(quando) {
   return new Date(quando.getUTCFullYear(), quando.getUTCMonth(), quando.getUTCDate()).getTime();
 }
 
-function situacaoDoPrazo(quando) {
-  const dias = Math.round((diaDoPrazo(quando) - inicioDoDia(new Date())) / UM_DIA);
-  if (dias < 0) return { estado: "passou", texto: dias === -1 ? "Foi ontem" : `Passou há ${Math.abs(dias)} dias` };
-  if (dias === 0) return { estado: "hoje", texto: "É hoje" };
-  if (dias === 1) return { estado: "perto", texto: "É amanhã" };
-  if (dias <= 15) return { estado: "perto", texto: `Faltam ${dias} dias` };
-  return { estado: "longe", texto: `Faltam ${dias} dias` };
+// Situação pelo PERÍODO do prazo: antes de começar, "faltam N dias"; durante
+// um intervalo (ex.: 9 a 10/09), "em andamento — termina amanhã"; depois do
+// último dia, "passou".
+function situacaoDoPrazo(p) {
+  const hoje = inicioDoDia(new Date());
+  const ini = Math.round((diaDoPrazo(p.quando) - hoje) / UM_DIA);
+  const fimDias = Math.round((diaDoPrazo(p.limite || p.quando) - hoje) / UM_DIA);
+  if (fimDias < 0) return { estado: "passou", texto: fimDias === -1 ? "Foi ontem" : `Passou há ${Math.abs(fimDias)} dias` };
+  if (ini <= 0 && p.fim) {
+    if (fimDias === 0) return { estado: "hoje", texto: "Último dia hoje" };
+    return { estado: "hoje", texto: fimDias === 1 ? "Em andamento · termina amanhã" : `Em andamento · termina em ${fimDias} dias` };
+  }
+  if (ini === 0) return { estado: "hoje", texto: p.ate ? "Prazo final hoje" : "É hoje" };
+  if (ini === 1) return { estado: "perto", texto: p.fim ? "Começa amanhã" : "É amanhã" };
+  const txt = p.fim ? `Começa em ${ini} dias` : `Faltam ${ini} dias`;
+  return { estado: ini <= 15 ? "perto" : "longe", texto: txt };
+}
+
+// "09/09 a 10/09/2026", "até 10/09/2026", "11/09/2026, 8h às 23h59 (previsão)"
+function textoQuando(p, comAno = true) {
+  const opc = comAno ? { timeZone: "UTC" } : { timeZone: "UTC", day: "2-digit", month: "2-digit" };
+  const d = p.quando.toLocaleDateString("pt-BR", opc);
+  let t;
+  if (p.fim) {
+    const ini = p.quando.toLocaleDateString("pt-BR", { timeZone: "UTC", day: "2-digit", month: "2-digit" });
+    t = `${ini} a ${p.fim.toLocaleDateString("pt-BR", opc)}`;
+  } else {
+    t = `${p.ate ? "até " : ""}${d}`;
+  }
+  if (p.horario) t += `, ${p.horario}`;
+  return t;
 }
 
 // ---------------------------------------------------------------------------
@@ -676,6 +704,7 @@ function ehDataDePublicacao(textoAntesDaData) {
 // Título e "o que fazer" do prazo: o robô já grava; pra prazos antigos, o app
 // calcula na hora a partir da frase.
 function infoPrazo(p) {
+  if (p.rotulo) return { titulo: p.etapa || p.titulo || p.categoria || "Prazo", oQueFazer: [p.rotulo] };
   if (p.titulo && Array.isArray(p.oQueFazer) && p.oQueFazer.length) return { titulo: p.titulo, oQueFazer: p.oQueFazer };
   return resumirPrazo(p.descricao, p.categoria, "");
 }
@@ -699,95 +728,189 @@ function prazosValidos() {
   return todosOsPrazos.filter((p) => p.quando && !prazoEhPublicacao(p));
 }
 
-// Filtros da aba Prazos (além de Próximos / Já passaram / Tudo).
-const filtrosPrazo = { busca: "", fonte: "", categoria: "", mes: "", pendentes: false };
+// ---------------------------------------------------------------------------
+// Filtros da aba Prazos
+//   Período: próximos (inclui o que está em andamento), próximos 7/30 dias,
+//            este mês, já passaram, tudo ou um intervalo de datas escolhido.
+//            Um prazo "cai" no período se QUALQUER dia dele estiver dentro
+//            (um intervalo 9–10/09 aparece numa busca de 10/09 a 20/09).
+//   Etapa:   de qual página veio (Chamada Regular, 10ª Convocação…).
+//   Situação, instituição, busca e "só o que falta providenciar".
+// ---------------------------------------------------------------------------
+const filtrosPrazo = { periodo: "proximos", de: "", ate: "", etapa: "", busca: "", fonte: "", categoria: "", pendentes: false };
 
-function preencherOpcoesFiltro() {
-  const cats = [...new Set(prazosValidos().map((p) => p.categoria || "Calendário"))].sort((a, b) => a.localeCompare(b, "pt-BR"));
-  const selCat = $("filtro-categoria");
-  const atualCat = selCat.value;
-  selCat.innerHTML = '<option value="">Todas as situações</option>' + cats.map((c) => `<option>${escapeHtml(c)}</option>`).join("");
-  selCat.value = cats.includes(atualCat) ? atualCat : "";
-
-  const meses = [...new Set(prazosValidos().map((p) => `${p.quando.getUTCFullYear()}-${String(p.quando.getUTCMonth() + 1).padStart(2, "0")}`))].sort();
-  const selMes = $("filtro-mes");
-  const atualMes = selMes.value;
-  const NOMES = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
-  selMes.innerHTML = '<option value="">Qualquer mês</option>' + meses.map((m) => {
-    const [a, mm] = m.split("-");
-    return `<option value="${m}">${NOMES[Number(mm) - 1]} de ${a}</option>`;
-  }).join("");
-  selMes.value = meses.includes(atualMes) ? atualMes : "";
+// Ordem natural das etapas: cronograma, chamada regular, lista de espera,
+// 1ª…Nª convocação, resultado, remanejamentos; o resto depois, em ordem alfabética.
+function pesoEtapa(e) {
+  const t = semAcentoResumo(e);
+  if (/cronograma/.test(t)) return [0, 0];
+  if (/chamada regular/.test(t)) return [1, 0];
+  if (/lista de espera/.test(t)) return [2, 0];
+  const n = t.match(/(\d{1,2})\s*[ªaº°]?\s*convoca/);
+  if (n) return [3, Number(n[1])];
+  if (/suplente/.test(t)) return [3, 0];
+  if (/resultado/.test(t)) return [4, 0];
+  if (/remanejamento/.test(t)) return [5, 0];
+  return [6, 0];
 }
 
-function passaNosFiltros(p) {
-  if (filtrosPrazo.fonte && p.fonte !== filtrosPrazo.fonte) return false;
-  if (filtrosPrazo.categoria && (p.categoria || "Calendário") !== filtrosPrazo.categoria) return false;
-  if (filtrosPrazo.mes) {
-    const m = `${p.quando.getUTCFullYear()}-${String(p.quando.getUTCMonth() + 1).padStart(2, "0")}`;
-    if (m !== filtrosPrazo.mes) return false;
+// Prazos gravados antes das novas fontes não têm "origem".
+function origemPadrao(p) {
+  if (p.origem) return p.origem;
+  if (/sisu\.ufc\.br/.test(p.link || "")) return "Sisu UFC";
+  return p.fonte === "IFCE" ? "IFCE" : "UFC";
+}
+
+function preencherOpcoesFiltro() {
+  const validos = prazosValidos();
+  // Origem: UFC (tudo), IFCE (tudo) e cada site/tipo de seleção.
+  const porInst = { UFC: new Set(), IFCE: new Set() };
+  validos.forEach((p) => (porInst[p.fonte === "IFCE" ? "IFCE" : "UFC"]).add(origemPadrao(p)));
+  const selFonte = $("filtro-fonte");
+  const grupo = (inst) => porInst[inst].size
+    ? `<optgroup label="${inst}"><option value="inst:${inst}">${inst} — tudo</option>${[...porInst[inst]].sort((a, b) => a.localeCompare(b, "pt-BR"))
+        .map((o) => `<option value="origem:${escapeHtml(o)}">${escapeHtml(o.replace(/^IFCE · /, ""))}</option>`).join("")}</optgroup>`
+    : "";
+  selFonte.innerHTML = '<option value="">UFC e IFCE — tudo</option>' + grupo("UFC") + grupo("IFCE");
+  selFonte.value = [...selFonte.options].some((o) => o.value === filtrosPrazo.fonte) ? filtrosPrazo.fonte : "";
+  const etapas = [...new Set(validos.map((p) => infoPrazo(p).titulo))].sort((a, b) => {
+    const [pa, na] = pesoEtapa(a), [pb, nb] = pesoEtapa(b);
+    return pa - pb || na - nb || a.localeCompare(b, "pt-BR");
+  });
+  const selEtapa = $("filtro-etapa");
+  selEtapa.innerHTML = '<option value="">Todas as etapas</option>' + etapas.map((e) => `<option>${escapeHtml(e)}</option>`).join("");
+  selEtapa.value = etapas.includes(filtrosPrazo.etapa) ? filtrosPrazo.etapa : "";
+
+  const cats = [...new Set(validos.map((p) => p.categoria || "Outros"))].sort((a, b) => a.localeCompare(b, "pt-BR"));
+  const selCat = $("filtro-categoria");
+  selCat.innerHTML = '<option value="">Todas as situações</option>' + cats.map((c) => `<option>${escapeHtml(c)}</option>`).join("");
+  selCat.value = cats.includes(filtrosPrazo.categoria) ? filtrosPrazo.categoria : "";
+}
+
+function diaDeInput(v) {
+  if (!v) return null;
+  const [a, m, d] = v.split("-").map(Number);
+  return new Date(a, m - 1, d).getTime();
+}
+
+// Janela [de, até] (em "dia local") do período escolhido; null = sem limite.
+function janelaDoPeriodo() {
+  const hoje = inicioDoDia(new Date());
+  const agora = new Date();
+  switch (filtrosPrazo.periodo) {
+    case "proximos": return [hoje, null];
+    case "7": return [hoje, hoje + 7 * UM_DIA];
+    case "30": return [hoje, hoje + 30 * UM_DIA];
+    case "mes": return [new Date(agora.getFullYear(), agora.getMonth(), 1).getTime(), new Date(agora.getFullYear(), agora.getMonth() + 1, 0).getTime()];
+    case "passados": return [null, hoje - UM_DIA];
+    case "datas": return [diaDeInput(filtrosPrazo.de), diaDeInput(filtrosPrazo.ate)];
+    default: return [null, null];
   }
+}
+
+function passaNosFiltros(p, janela) {
+  const [de, ate] = janela;
+  const ini = diaDoPrazo(p.quando);
+  const fim = diaDoPrazo(p.limite || p.quando);
+  if (filtrosPrazo.periodo === "passados") {
+    if (fim >= inicioDoDia(new Date())) return false;
+  } else {
+    if (de !== null && fim < de) return false;
+    if (ate !== null && ini > ate) return false;
+  }
+  if (filtrosPrazo.etapa && infoPrazo(p).titulo !== filtrosPrazo.etapa) return false;
+  if (filtrosPrazo.fonte) {
+    const [tipo, valor] = filtrosPrazo.fonte.split(":");
+    if (tipo === "inst" && p.fonte !== valor) return false;
+    if (tipo === "origem" && (p.origem || origemPadrao(p)) !== valor) return false;
+  }
+  if (filtrosPrazo.categoria && (p.categoria || "Outros") !== filtrosPrazo.categoria) return false;
   if (filtrosPrazo.pendentes && prazosConfirmados.has(p.id)) return false;
   if (filtrosPrazo.busca) {
     const info = infoPrazo(p);
-    const alvo = semAcentoResumo([info.titulo, info.oQueFazer.join(" "), p.descricao, p.categoria, p.fonte, p.fonteTitulo, p.quando.toLocaleDateString("pt-BR", { timeZone: "UTC" })].join(" "));
+    const alvo = semAcentoResumo([info.titulo, info.oQueFazer.join(" "), p.secao, p.publico, p.descricao, p.categoria, p.fonte, origemPadrao(p), p.fonteTitulo, textoQuando(p)].join(" "));
     const termos = semAcentoResumo(filtrosPrazo.busca).split(/\s+/).filter(Boolean);
     if (!termos.every((t) => alvo.includes(t))) return false;
   }
   return true;
 }
 
+const NOMES_MESES = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
+
 function renderizarPrazos() {
   const lista = $("lista-eventos");
   const hoje = inicioDoDia(new Date());
   preencherOpcoesFiltro();
-  let itens = prazosValidos().filter(passaNosFiltros);
+  $("filtro-datas").classList.toggle("oculto", filtrosPrazo.periodo !== "datas");
 
-  // Sempre o que está mais perto no topo: os próximos em ordem de data e,
-  // em "Tudo", os que já passaram vêm depois, do mais recente pro mais antigo.
-  const futuros = itens.filter((p) => diaDoPrazo(p.quando) >= hoje).sort((a, b) => a.quando - b.quando);
-  const passados = itens.filter((p) => diaDoPrazo(p.quando) < hoje).sort((a, b) => b.quando - a.quando);
-  if (filtroPrazoAtual === "proximos") itens = futuros;
-  else if (filtroPrazoAtual === "passados") itens = passados;
-  else itens = [...futuros, ...passados];
+  const janela = janelaDoPeriodo();
+  const itens0 = prazosValidos().filter((p) => passaNosFiltros(p, janela));
+  // O que está em andamento ou vem aí fica em cima, do mais perto pro mais
+  // longe; o que já passou vem depois, do mais recente pro mais antigo.
+  const abertos = itens0.filter((p) => diaDoPrazo(p.limite || p.quando) >= hoje)
+    .sort((a, b) => a.quando - b.quando || (a.limite || a.quando) - (b.limite || b.quando));
+  const passados = itens0.filter((p) => diaDoPrazo(p.limite || p.quando) < hoje)
+    .sort((a, b) => (b.limite || b.quando) - (a.limite || a.quando));
+  const itens = [...abertos, ...passados];
 
-  const algumFiltro = filtrosPrazo.busca || filtrosPrazo.fonte || filtrosPrazo.categoria || filtrosPrazo.mes || filtrosPrazo.pendentes;
-  $("prazos-contagem").textContent = `${itens.length} prazo${itens.length === 1 ? "" : "s"}${algumFiltro ? " com esses filtros" : ""}`;
+  const padrao = filtrosPrazo.periodo === "proximos";
+  const algumFiltro = !padrao || filtrosPrazo.etapa || filtrosPrazo.busca || filtrosPrazo.fonte || filtrosPrazo.categoria || filtrosPrazo.pendentes;
+  $("prazos-contagem").textContent = `${itens.length} prazo${itens.length === 1 ? "" : "s"}${algumFiltro ? " com esses filtros" : " daqui pra frente"}`;
   $("filtro-limpar").classList.toggle("oculto", !algumFiltro);
 
   lista.innerHTML = "";
   if (itens.length === 0) {
     lista.innerHTML = algumFiltro
-      ? '<p class="vazio">Nenhum prazo com esses filtros. Tente tirar algum filtro ou buscar outra palavra.</p>'
-      : '<p class="vazio">Nada aqui ainda. O robô lê as páginas da UFC e do IFCE de hora em hora e coloca nesta lista toda data que encontrar — chamada regular, lista de espera, suplentes, matrícula e documentação.</p>';
+      ? '<p class="vazio">Nenhum prazo com esses filtros. Tente outro período ou tire algum filtro.</p>'
+      : '<p class="vazio">Nenhum prazo daqui pra frente. Para ver os anteriores, escolha "Já passaram" ou "Tudo" no período.</p>';
     return;
   }
 
+  // Cabeçalhos: "Em andamento", depois um por mês.
+  let grupoAtual = null;
   itens.forEach((p) => {
-    const sit = situacaoDoPrazo(p.quando);
+    const ini = diaDoPrazo(p.quando);
+    const fim = diaDoPrazo(p.limite || p.quando);
+    const grupo = ini < hoje && fim >= hoje
+      ? "Em andamento"
+      : `${NOMES_MESES[p.quando.getUTCMonth()]} de ${p.quando.getUTCFullYear()}${fim < hoje ? " · já passou" : ""}`;
+    if (grupo !== grupoAtual) {
+      grupoAtual = grupo;
+      const h = document.createElement("h3");
+      h.className = "grupo-prazos";
+      h.textContent = grupo.charAt(0).toUpperCase() + grupo.slice(1);
+      lista.appendChild(h);
+    }
+
+    const sit = situacaoDoPrazo(p);
     const novo = p.criadoEm?.toDate && Date.now() - p.criadoEm.toDate().getTime() < 2 * UM_DIA;
     const confirmado = prazosConfirmados.has(p.id);
-    const dataFormatada = p.quando.toLocaleDateString("pt-BR", { timeZone: "UTC" });
     const info = infoPrazo(p);
+    const contexto = [p.secao, p.publico].filter(Boolean).join(" · ");
 
     const cartao = document.createElement("article");
     cartao.className = "cartao-evento";
     cartao.innerHTML = `
       <div class="cartao-topo-noticia">
         <span class="etiqueta etiqueta-fonte-${escapeHtml(p.fonte || "")}">${escapeHtml(p.fonte || "")}</span>
-        <span class="etiqueta">${escapeHtml(p.categoria || "Calendário")}</span>
+        <span class="etiqueta">${escapeHtml(p.categoria || "Outros")}</span>
         <span class="etiqueta etiqueta-${sit.estado}">${escapeHtml(sit.texto)}</span>
+        ${p.previsao ? '<span class="etiqueta">Previsão</span>' : ""}
         ${novo ? '<span class="etiqueta etiqueta-novo">Novo</span>' : ""}
       </div>
-      <div class="cartao-topo"><strong>${escapeHtml(dataFormatada)} · ${escapeHtml(info.titulo)}</strong></div>
+      <div class="cartao-topo"><strong>${escapeHtml(textoQuando(p))} · ${escapeHtml(info.titulo)}</strong></div>
       <div class="o-que-fazer">
         <span>O que fazer</span>
         <ul>${info.oQueFazer.map((a) => `<li>${escapeHtml(a)}</li>`).join("")}</ul>
+        ${contexto ? `<p class="contexto-prazo">${escapeHtml(contexto)}</p>` : ""}
       </div>
-      ${p.descricao ? `<details class="trecho-original"><summary>Trecho da página</summary><p>${escapeHtml(p.descricao)}</p></details>` : ""}
+      ${p.descricao && p.descricao !== info.oQueFazer[0] ? `<details class="trecho-original"><summary>Como está no site</summary><p>${escapeHtml(p.descricao)}</p></details>` : ""}
       <div class="cartao-rodape">
-        <span class="cartao-data">${escapeHtml(p.fonteTitulo || "")}</span>
-        ${p.link ? `<a href="${escapeHtml(p.link)}" target="_blank" rel="noopener">Ver página →</a>` : ""}
+        <span class="cartao-data">${escapeHtml(origemPadrao(p))}${p.fonteTitulo && p.fonteTitulo !== info.titulo ? " · " + escapeHtml(p.fonteTitulo) : ""}</span>
+        <span class="links-prazo">
+          ${p.pagina && p.pagina !== p.link ? `<a href="${escapeHtml(p.pagina)}" target="_blank" rel="noopener">Página</a>` : ""}
+          ${p.link ? `<a href="${escapeHtml(p.link)}" target="_blank" rel="noopener">${/\.pdf($|\?)/i.test(p.link) ? "Ver PDF →" : "Ver página →"}</a>` : ""}
+        </span>
       </div>
       ${
         confirmado
@@ -808,28 +931,31 @@ function renderizarPrazos() {
   });
 }
 
+$("filtro-periodo").addEventListener("change", (e) => {
+  filtrosPrazo.periodo = e.target.value;
+  if (filtrosPrazo.periodo === "datas" && !filtrosPrazo.de) {
+    const hoje = new Date();
+    const iso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    filtrosPrazo.de = iso(hoje);
+    filtrosPrazo.ate = iso(new Date(hoje.getTime() + 30 * UM_DIA));
+    $("filtro-de").value = filtrosPrazo.de;
+    $("filtro-ate").value = filtrosPrazo.ate;
+  }
+  renderizarPrazos();
+});
+$("filtro-de").addEventListener("change", (e) => { filtrosPrazo.de = e.target.value; renderizarPrazos(); });
+$("filtro-ate").addEventListener("change", (e) => { filtrosPrazo.ate = e.target.value; renderizarPrazos(); });
+$("filtro-etapa").addEventListener("change", (e) => { filtrosPrazo.etapa = e.target.value; renderizarPrazos(); });
 $("filtro-busca").addEventListener("input", (e) => { filtrosPrazo.busca = e.target.value.trim(); renderizarPrazos(); });
 $("filtro-fonte").addEventListener("change", (e) => { filtrosPrazo.fonte = e.target.value; renderizarPrazos(); });
 $("filtro-categoria").addEventListener("change", (e) => { filtrosPrazo.categoria = e.target.value; renderizarPrazos(); });
-$("filtro-mes").addEventListener("change", (e) => { filtrosPrazo.mes = e.target.value; renderizarPrazos(); });
 $("filtro-pendentes").addEventListener("change", (e) => { filtrosPrazo.pendentes = e.target.checked; renderizarPrazos(); });
 $("filtro-limpar").addEventListener("click", () => {
-  Object.assign(filtrosPrazo, { busca: "", fonte: "", categoria: "", mes: "", pendentes: false });
-  $("filtro-busca").value = "";
-  $("filtro-fonte").value = "";
-  $("filtro-categoria").value = "";
-  $("filtro-mes").value = "";
+  Object.assign(filtrosPrazo, { periodo: "proximos", de: "", ate: "", etapa: "", busca: "", fonte: "", categoria: "", pendentes: false });
+  ["filtro-busca", "filtro-fonte", "filtro-categoria", "filtro-etapa", "filtro-de", "filtro-ate"].forEach((id) => ($(id).value = ""));
+  $("filtro-periodo").value = "proximos";
   $("filtro-pendentes").checked = false;
   renderizarPrazos();
-});
-
-document.querySelectorAll(".chip-prazo").forEach((chip) => {
-  chip.addEventListener("click", () => {
-    document.querySelectorAll(".chip-prazo").forEach((c) => c.classList.remove("chip-ativo"));
-    chip.classList.add("chip-ativo");
-    filtroPrazoAtual = chip.dataset.prazoFiltro;
-    renderizarPrazos();
-  });
 });
 
 // ---------------------------------------------------------------------------
@@ -1638,8 +1764,8 @@ const MESES_CURTOS = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "s
 function renderizarLateral() {
   const hoje = inicioDoDia(new Date());
   const proximos = prazosValidos()
-    .filter((p) => diaDoPrazo(p.quando) >= hoje && !prazosConfirmados.has(p.id))
-    .sort((a, b) => a.quando - b.quando)
+    .filter((p) => diaDoPrazo(p.limite || p.quando) >= hoje && !prazosConfirmados.has(p.id))
+    .sort((a, b) => Math.max(diaDoPrazo(a.quando), hoje) - Math.max(diaDoPrazo(b.quando), hoje) || a.limite - b.limite)
     .slice(0, 5);
 
   $("lateral-prazos").innerHTML = proximos.length
@@ -1648,10 +1774,16 @@ function renderizarLateral() {
           const info = infoPrazo(p);
           const oque = info.oQueFazer.join(" + ");
           const desc = oque.length > 90 ? oque.slice(0, 88).replace(/\s\S*$/, "").replace(/\s*\+$/, "") + "…" : oque;
+          // Em andamento: a caixa mostra o último dia ("até 10 set").
+          const emAndamento = diaDoPrazo(p.quando) < hoje;
+          const dia = emAndamento ? p.limite : p.quando;
+          const extra = [p.fim || p.horario ? textoQuando(p, false) : "", p.secao ? p.secao.replace(/^cronograma d[oa]s?\s+/i, "").replace(/^procedimento\s+(de|para)\s+/i, "") : ""]
+            .filter(Boolean).join(" · ");
+          const quando = extra ? `<span class="quando-lateral">${escapeHtml(extra.length > 70 ? extra.slice(0, 68) + "…" : extra)}</span>` : "";
           return `
             <div class="item-lateral">
-              <div class="data-caixa"><b>${p.quando.getUTCDate()}</b><small>${MESES_CURTOS[p.quando.getUTCMonth()]}</small></div>
-              <div><strong>${escapeHtml(info.titulo)} · ${escapeHtml(p.fonte || "")}</strong>${escapeHtml(desc)}</div>
+              <div class="data-caixa">${emAndamento || p.ate ? "<small>até</small>" : ""}<b>${dia.getUTCDate()}</b><small>${MESES_CURTOS[dia.getUTCMonth()]}</small></div>
+              <div><strong>${escapeHtml(info.titulo)} · ${escapeHtml(p.fonte || "")}</strong>${escapeHtml(desc)}${quando}</div>
             </div>`;
         })
         .join("")
@@ -1686,6 +1818,9 @@ async function carregarConfig() {
   $("config-push").checked = prefs.push !== false;
   $("config-email-toggle").checked = prefs.email !== false;
   $("config-urgente").checked = prefs.alertaUrgente !== false;
+  document.querySelectorAll("[data-grupo-aviso]").forEach((c) => {
+    c.checked = prefs.grupos?.[c.dataset.grupoAviso] !== false;
+  });
 }
 
 $("form-config").addEventListener("submit", async (e) => {
@@ -1698,6 +1833,7 @@ $("form-config").addEventListener("submit", async (e) => {
       email: $("config-email-toggle").checked,
       alertaUrgente: $("config-urgente").checked,
       antecedenciaDias: [5, 2],
+      grupos: Object.fromEntries([...document.querySelectorAll("[data-grupo-aviso]")].map((c) => [c.dataset.grupoAviso, c.checked])),
     },
   });
   showMsg("msg-config-salvo", "Preferências salvas!");
