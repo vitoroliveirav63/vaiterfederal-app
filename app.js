@@ -749,6 +749,20 @@ function statusPdf(tipo, texto) {
   el.textContent = texto;
 }
 
+// Mostra, abaixo do aviso, as linhas das provas do jeito que o leitor viu —
+// ajuda a descobrir por que uma nota não veio.
+function detalhePdf(titulo, linhas) {
+  const el = $("pdf-status");
+  const det = document.createElement("details");
+  det.className = "detalhe-pdf";
+  const sum = document.createElement("summary");
+  sum.textContent = titulo;
+  const pre = document.createElement("pre");
+  pre.textContent = linhas.length ? linhas.join("\n") : "(nenhuma linha com o nome das provas foi encontrada)";
+  det.append(sum, pre);
+  el.append(det);
+}
+
 // Junta o que veio do PDF por cima do que já existe (sem apagar nada que o PDF
 // não trouxe) — assim o boletim e o cartão de confirmação se completam.
 function mesclarLeitura(base, lido) {
@@ -795,6 +809,8 @@ async function importarPdfs(arquivos) {
   let acumulado = {};
   const encontrados = new Set();
   const semTexto = [];
+  const notasFaltando = [];
+  let segundosTotal = 0;
 
   for (const arquivo of pdfs) {
     statusPdf("lendo", `Lendo ${arquivo.name}…`);
@@ -803,6 +819,12 @@ async function importarPdfs(arquivos) {
       if (lido.camposEncontrados.length === 0) {
         semTexto.push(arquivo.name);
         continue;
+      }
+      segundosTotal += lido.segundos || 0;
+      // Parece boletim (cita as provas) mas alguma nota não saiu?
+      if (lido.linhasDasNotas?.length >= 3) {
+        const faltam = ["lc", "ch", "cn", "mt", "redacao"].filter((k) => lido.notas[k] === null);
+        if (faltam.length) notasFaltando.push({ arquivo: arquivo.name, faltam, linhas: lido.linhasDasNotas });
       }
       acumulado = mesclarLeitura(acumulado, lido);
       lido.camposEncontrados.filter((c) => CAMPO_PARA_INPUT[c]).forEach((c) => encontrados.add(c));
@@ -842,8 +864,16 @@ async function importarPdfs(arquivos) {
   if (existente) msg += ` Você já tinha o Enem ${existente.ano} cadastrado — juntei os dados novos com os que já estavam lá.`;
   if (!ano) msg += " Não achei o ano no PDF: preencha o campo Ano antes de salvar.";
   if (semTexto.length) msg += ` (Sem texto reconhecível: ${semTexto.join(", ")}.)`;
-  statusPdf("ok", msg);
-  $("form-inscricao").scrollIntoView({ behavior: "smooth", block: "start" });
+  if (segundosTotal) msg += ` Leitura: ${segundosTotal}s.`;
+  const NOMES = { lc: "Linguagens", ch: "C. Humanas", cn: "C. da Natureza", mt: "Matemática", redacao: "Redação" };
+  const aindaFaltam = notasFaltando.filter((n) => n.faltam.some((k) => final.notas?.[k] == null));
+  if (aindaFaltam.length) {
+    const nomes = [...new Set(aindaFaltam.flatMap((n) => n.faltam.filter((k) => final.notas?.[k] == null)))].map((k) => NOMES[k]);
+    msg += ` Não consegui ler: ${nomes.join(", ")} — preencha à mão.`;
+  }
+  statusPdf(aindaFaltam.length ? "falha" : "ok", msg);
+  aindaFaltam.forEach((n) => detalhePdf(`Ver o que eu li nas notas de ${n.arquivo}`, n.linhas));
+  $("pdf-status").scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 const zona = $("zona-pdf");
