@@ -29,6 +29,7 @@ import {
   isSupported,
 } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-messaging.js";
 import { lerPdfDoEnem } from "./leitor-pdf.js";
+import * as DICAS from "./dicas-enem.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDuG755MrvWbhSRPaPtSuVM_K8QNNkopHU",
@@ -297,6 +298,7 @@ function entrarNoApp() {
     if (snap.empty) migrarInscricaoAntiga(user);
     renderizarAcompanhamento();
     renderizarLateral();
+    renderizarDesempenho();
   });
 
   mostrarPagina("feed");
@@ -430,6 +432,33 @@ function nomeArquivoDeUrl(url) {
   }
 }
 
+// Texto de páginas lidas antes da limpeza do robô: tira nomes de ícone
+// ("arrow_forward_ios") e o "Página atualizada há…".
+function limparCorpo(t) {
+  return String(t || "")
+    .replace(/\b[a-z]+(?:_[a-z]+)+\b/g, "")
+    .replace(/P[áa]gina atualizada h[áa][^(.]*/gi, "")
+    .replace(/[ \t]+/g, " ")
+    .trim();
+}
+
+// Monta o corpo em títulos, parágrafos e listas (quando o robô mandou os blocos).
+function htmlBlocos(blocos) {
+  let html = "";
+  let emLista = false;
+  for (const b of blocos) {
+    if (b.tipo === "item") {
+      if (!emLista) { html += "<ul>"; emLista = true; }
+      html += `<li>${escapeHtml(b.t)}</li>`;
+      continue;
+    }
+    if (emLista) { html += "</ul>"; emLista = false; }
+    html += b.tipo === "titulo" ? `<h4>${escapeHtml(b.t)}</h4>` : `<p>${escapeHtml(b.t)}</p>`;
+  }
+  if (emLista) html += "</ul>";
+  return html;
+}
+
 function renderizarFeed() {
   const lista = $("feed-lista");
   const itens = filtroFeedAtual === "todos" ? ultimosItensFeed : ultimosItensFeed.filter((it) => it.fonte === filtroFeedAtual);
@@ -445,7 +474,9 @@ function renderizarFeed() {
     const imagens = Array.isArray(item.imagens) ? item.imagens : [];
     const anexos = Array.isArray(item.anexos) ? item.anexos : [];
     const dataExibida = formatarDataHora(item.mudouEm || item.novoEm || item.atualizadoEm);
-    const corpoLongo = (item.corpo || "").length > 320;
+    const blocos = Array.isArray(item.blocos) && item.blocos.length ? item.blocos : null;
+    const corpoTexto = limparCorpo(item.corpo);
+    const corpoLongo = blocos ? blocos.length > 3 || corpoTexto.length > 320 : corpoTexto.length > 320;
 
     const cartao = document.createElement("article");
     cartao.className = "cartao-noticia";
@@ -457,7 +488,7 @@ function renderizarFeed() {
       </div>
       <h3>${escapeHtml(item.titulo || "Sem título")}</h3>
       ${imagens[0] ? `<div class="cartao-imagem"><img src="${escapeHtml(imagens[0])}" alt="" loading="lazy" /></div>` : ""}
-      <div class="cartao-corpo ${corpoLongo ? "recolhido" : ""}">${escapeHtml(item.corpo || "")}</div>
+      <div class="cartao-corpo ${blocos ? "corpo-blocos" : ""} ${corpoLongo ? "recolhido" : ""}">${blocos ? htmlBlocos(blocos) : escapeHtml(corpoTexto)}</div>
       ${corpoLongo ? '<button class="botao-ver-mais" type="button">Ver mais</button>' : ""}
       ${
         anexos.length > 0
@@ -521,23 +552,189 @@ function situacaoDoPrazo(quando) {
   return { estado: "longe", texto: `Faltam ${dias} dias` };
 }
 
+// ---------------------------------------------------------------------------
+// Resumo do prazo: transforma a frase solta da página ("Sisu 2026: listados na
+// 10ª Convocação de Suplentes têm os dias 9 e 10 de setembro para realizar
+// autocadastro no SIGAA") em
+//   titulo:   "10ª Convocação de Suplentes"
+//   oQueFazer: ["Autocadastro no SIGAA", "Ativação da matrícula"]
+// (Mesmo código no robô e no app — se mudar um, mude o outro.)
+// ---------------------------------------------------------------------------
+function semAcentoResumo(t) {
+  return String(t || "").normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
+}
+
+const ACOES_PRAZO = [
+  { re: /regulariza/, txt: "Regularizar a documentação indeferida" },
+  { re: /recurso/, txt: "Recurso contra o indeferimento" },
+  { re: /manifest\w* (de )?interesse/, txt: "Manifestar interesse na lista de espera" },
+  { re: /pre-?matricula/, txt: "Pré-matrícula" },
+  { re: /autocadastro/, txt: "Autocadastro no SIGAA" },
+  { re: /ativa\w*\s+(a\s+|da\s+|de\s+)?matricula/, txt: "Ativação da matrícula" },
+  { re: /heteroidentifica/, txt: "Banca de heteroidentificação" },
+  { re: /biopsicossocial|pessoa com deficiencia|\bpcd\b/, txt: "Avaliação biopsicossocial (PcD)" },
+  { re: /socioecono|comprova\w* de renda/, txt: "Documentação socioeconômica (renda)" },
+  { re: /documenta\w* basica|analise documental|envio d[ae]s? document|entrega d[ae]s? document/, txt: "Documentação básica" },
+  { re: /rematricula/, txt: "Rematrícula" },
+  { re: /ajuste de matricula/, txt: "Ajuste de matrícula" },
+  { re: /trancamento/, txt: "Trancamento" },
+  { re: /inicio (das|do) (aulas|semestre|periodo)/, txt: "Início das aulas" },
+  { re: /(termino|fim|encerramento) (das|do) (aulas|semestre|periodo)/, txt: "Fim do semestre" },
+  { re: /feriado|recesso/, txt: "Feriado / recesso" },
+  { re: /resultado/, txt: "Resultado" },
+  { re: /inscri/, txt: "Inscrição" },
+];
+
+function tituloDoPrazo(texto) {
+  const t = String(texto || "");
+  let m = t.match(/(\d{1,2})\s*[ªaº°]\s*(?:e\s*(\d{1,2})\s*[ªaº°]\s*)?convoca\S*\s+(?:de\s+)?suplentes/i);
+  if (m) return m[2] ? `${m[1]}ª e ${m[2]}ª Convocações de Suplentes` : `${m[1]}ª Convocação de Suplentes`;
+  m = t.match(/(\d{1,2})\s*[ªaº°]\s*chamada/i);
+  if (m) return `${m[1]}ª chamada`;
+  const s = semAcentoResumo(t);
+  if (/lista de espera/.test(s)) return "Lista de espera";
+  if (/chamada regular/.test(s)) return "Chamada regular";
+  if (/suplent/.test(s)) return "Suplentes";
+  return null;
+}
+
+// frase = a frase onde a data aparece; antes = o texto que vem antes dela na
+// página (título da notícia etc.), usado só pra achar o título da convocação.
+function resumirPrazo(frase, categoria, antes) {
+  const s = semAcentoResumo(frase);
+  const acoes = [];
+  for (const a of ACOES_PRAZO) {
+    if (a.re.test(s) && !acoes.includes(a.txt)) acoes.push(a.txt);
+  }
+  // "Recurso" e "Regularizar" já dizem que é sobre documentação — não repete.
+  const sobreIndeferido = acoes.some((a) => /Recurso|Regularizar/.test(a));
+  let oQueFazer = sobreIndeferido
+    ? acoes.filter((a) => !/^Documentação|^Resultado$/.test(a))
+    : acoes;
+  if (sobreIndeferido) {
+    const qual = [];
+    if (/documenta\w* basica/.test(s)) qual.push("básica");
+    if (/socioecono/.test(s)) qual.push("socioeconômica");
+    if (qual.length) oQueFazer = oQueFazer.map((a) => (/Recurso|Regularizar/.test(a) ? `${a} (documentação ${qual.join(" e/ou ")})` : a));
+  }
+  if (/somente hoje|apenas hoje|ultimo dia/.test(s)) oQueFazer = oQueFazer.map((a, i) => (i === 0 ? `${a} — último dia` : a));
+
+  let titulo = tituloDoPrazo(frase);
+  if (!titulo && antes) {
+    // A convocação mais perto da data, olhando pra trás.
+    const pedaco = String(antes).slice(-500);
+    const todas = [...pedaco.matchAll(/\d{1,2}\s*[ªaº°]\s*(?:e\s*\d{1,2}\s*[ªaº°]\s*)?convoca\S*\s+(?:de\s+)?suplentes|\d{1,2}\s*[ªaº°]\s*chamada|lista de espera|chamada regular/gi)];
+    if (todas.length) titulo = tituloDoPrazo(todas[todas.length - 1][0]);
+  }
+  if (!titulo) titulo = categoria || "Prazo";
+
+  // Sem ação reconhecida: usa o começo da frase, sem o "Sisu 2026:" e sem datas.
+  if (oQueFazer.length === 0) {
+    const limpa = String(frase || "")
+      .replace(/^[…\s]+/, "")
+      .replace(/^sisu\s+20\d{2}\s*:\s*/i, "")
+      .replace(/\s+/g, " ")
+      .trim();
+    oQueFazer = limpa ? [limpa.length > 120 ? limpa.slice(0, 118).replace(/\s\S*$/, "") + "…" : limpa] : [];
+  }
+  return { titulo, oQueFazer };
+}
+
+// "Data da publicação: 16 de setembro de 2026" não é prazo — é só quando a
+// notícia saiu.
+function ehDataDePublicacao(textoAntesDaData) {
+  return /(data da publica\w*|publicad[oa] em|atualizad[oa] em|pagina atualizada|postad[oa] em)\s*:?\s*$/.test(
+    semAcentoResumo(String(textoAntesDaData || "").slice(-40))
+  );
+}
+
+// Título e "o que fazer" do prazo: o robô já grava; pra prazos antigos, o app
+// calcula na hora a partir da frase.
+function infoPrazo(p) {
+  if (p.titulo && Array.isArray(p.oQueFazer) && p.oQueFazer.length) return { titulo: p.titulo, oQueFazer: p.oQueFazer };
+  return resumirPrazo(p.descricao, p.categoria, "");
+}
+
+// Datas que eram só a "Data da publicação" da notícia (o robô apaga, mas até
+// ele rodar, o app já esconde).
+function prazoEhPublicacao(p) {
+  if (!p.quando) return false;
+  const t = semAcentoResumo(p.descricao || "");
+  const re = /(?:data da publica\S*|publicad[oa] em|atualizad[oa] em)\s*:?\s*(\d{1,2})(?:\s+de\s+([a-z]+)|\/(\d{1,2}))/g;
+  const MES = { janeiro: 1, fevereiro: 2, marco: 3, abril: 4, maio: 5, junho: 6, julho: 7, agosto: 8, setembro: 9, outubro: 10, novembro: 11, dezembro: 12 };
+  let m;
+  while ((m = re.exec(t)) !== null) {
+    const mes = m[2] ? MES[m[2]] : Number(m[3]);
+    if (Number(m[1]) === p.quando.getUTCDate() && mes === p.quando.getUTCMonth() + 1) return true;
+  }
+  return false;
+}
+
+function prazosValidos() {
+  return todosOsPrazos.filter((p) => p.quando && !prazoEhPublicacao(p));
+}
+
+// Filtros da aba Prazos (além de Próximos / Já passaram / Tudo).
+const filtrosPrazo = { busca: "", fonte: "", categoria: "", mes: "", pendentes: false };
+
+function preencherOpcoesFiltro() {
+  const cats = [...new Set(prazosValidos().map((p) => p.categoria || "Calendário"))].sort((a, b) => a.localeCompare(b, "pt-BR"));
+  const selCat = $("filtro-categoria");
+  const atualCat = selCat.value;
+  selCat.innerHTML = '<option value="">Todas as situações</option>' + cats.map((c) => `<option>${escapeHtml(c)}</option>`).join("");
+  selCat.value = cats.includes(atualCat) ? atualCat : "";
+
+  const meses = [...new Set(prazosValidos().map((p) => `${p.quando.getUTCFullYear()}-${String(p.quando.getUTCMonth() + 1).padStart(2, "0")}`))].sort();
+  const selMes = $("filtro-mes");
+  const atualMes = selMes.value;
+  const NOMES = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
+  selMes.innerHTML = '<option value="">Qualquer mês</option>' + meses.map((m) => {
+    const [a, mm] = m.split("-");
+    return `<option value="${m}">${NOMES[Number(mm) - 1]} de ${a}</option>`;
+  }).join("");
+  selMes.value = meses.includes(atualMes) ? atualMes : "";
+}
+
+function passaNosFiltros(p) {
+  if (filtrosPrazo.fonte && p.fonte !== filtrosPrazo.fonte) return false;
+  if (filtrosPrazo.categoria && (p.categoria || "Calendário") !== filtrosPrazo.categoria) return false;
+  if (filtrosPrazo.mes) {
+    const m = `${p.quando.getUTCFullYear()}-${String(p.quando.getUTCMonth() + 1).padStart(2, "0")}`;
+    if (m !== filtrosPrazo.mes) return false;
+  }
+  if (filtrosPrazo.pendentes && prazosConfirmados.has(p.id)) return false;
+  if (filtrosPrazo.busca) {
+    const info = infoPrazo(p);
+    const alvo = semAcentoResumo([info.titulo, info.oQueFazer.join(" "), p.descricao, p.categoria, p.fonte, p.fonteTitulo, p.quando.toLocaleDateString("pt-BR", { timeZone: "UTC" })].join(" "));
+    const termos = semAcentoResumo(filtrosPrazo.busca).split(/\s+/).filter(Boolean);
+    if (!termos.every((t) => alvo.includes(t))) return false;
+  }
+  return true;
+}
+
 function renderizarPrazos() {
   const lista = $("lista-eventos");
   const hoje = inicioDoDia(new Date());
-  let itens = todosOsPrazos.filter((p) => p.quando);
+  preencherOpcoesFiltro();
+  let itens = prazosValidos().filter(passaNosFiltros);
 
-  if (filtroPrazoAtual === "proximos") {
-    itens = itens.filter((p) => diaDoPrazo(p.quando) >= hoje).sort((a, b) => a.quando - b.quando);
-  } else if (filtroPrazoAtual === "passados") {
-    itens = itens.filter((p) => diaDoPrazo(p.quando) < hoje).sort((a, b) => b.quando - a.quando);
-  } else {
-    itens = itens.sort((a, b) => a.quando - b.quando);
-  }
+  // Sempre o que está mais perto no topo: os próximos em ordem de data e,
+  // em "Tudo", os que já passaram vêm depois, do mais recente pro mais antigo.
+  const futuros = itens.filter((p) => diaDoPrazo(p.quando) >= hoje).sort((a, b) => a.quando - b.quando);
+  const passados = itens.filter((p) => diaDoPrazo(p.quando) < hoje).sort((a, b) => b.quando - a.quando);
+  if (filtroPrazoAtual === "proximos") itens = futuros;
+  else if (filtroPrazoAtual === "passados") itens = passados;
+  else itens = [...futuros, ...passados];
+
+  const algumFiltro = filtrosPrazo.busca || filtrosPrazo.fonte || filtrosPrazo.categoria || filtrosPrazo.mes || filtrosPrazo.pendentes;
+  $("prazos-contagem").textContent = `${itens.length} prazo${itens.length === 1 ? "" : "s"}${algumFiltro ? " com esses filtros" : ""}`;
+  $("filtro-limpar").classList.toggle("oculto", !algumFiltro);
 
   lista.innerHTML = "";
   if (itens.length === 0) {
-    lista.innerHTML =
-      '<p class="vazio">Nada aqui ainda. O robô lê as páginas da UFC e do IFCE de hora em hora e coloca nesta lista toda data que encontrar — chamada regular, lista de espera, suplentes, matrícula e documentação.</p>';
+    lista.innerHTML = algumFiltro
+      ? '<p class="vazio">Nenhum prazo com esses filtros. Tente tirar algum filtro ou buscar outra palavra.</p>'
+      : '<p class="vazio">Nada aqui ainda. O robô lê as páginas da UFC e do IFCE de hora em hora e coloca nesta lista toda data que encontrar — chamada regular, lista de espera, suplentes, matrícula e documentação.</p>';
     return;
   }
 
@@ -546,6 +743,7 @@ function renderizarPrazos() {
     const novo = p.criadoEm?.toDate && Date.now() - p.criadoEm.toDate().getTime() < 2 * UM_DIA;
     const confirmado = prazosConfirmados.has(p.id);
     const dataFormatada = p.quando.toLocaleDateString("pt-BR", { timeZone: "UTC" });
+    const info = infoPrazo(p);
 
     const cartao = document.createElement("article");
     cartao.className = "cartao-evento";
@@ -556,8 +754,12 @@ function renderizarPrazos() {
         <span class="etiqueta etiqueta-${sit.estado}">${escapeHtml(sit.texto)}</span>
         ${novo ? '<span class="etiqueta etiqueta-novo">Novo</span>' : ""}
       </div>
-      <div class="cartao-topo"><strong>${escapeHtml(dataFormatada)}</strong></div>
-      <div class="cartao-corpo">${escapeHtml(p.descricao || "")}</div>
+      <div class="cartao-topo"><strong>${escapeHtml(dataFormatada)} · ${escapeHtml(info.titulo)}</strong></div>
+      <div class="o-que-fazer">
+        <span>O que fazer</span>
+        <ul>${info.oQueFazer.map((a) => `<li>${escapeHtml(a)}</li>`).join("")}</ul>
+      </div>
+      ${p.descricao ? `<details class="trecho-original"><summary>Trecho da página</summary><p>${escapeHtml(p.descricao)}</p></details>` : ""}
       <div class="cartao-rodape">
         <span class="cartao-data">${escapeHtml(p.fonteTitulo || "")}</span>
         ${p.link ? `<a href="${escapeHtml(p.link)}" target="_blank" rel="noopener">Ver página →</a>` : ""}
@@ -580,6 +782,21 @@ function renderizarPrazos() {
     });
   });
 }
+
+$("filtro-busca").addEventListener("input", (e) => { filtrosPrazo.busca = e.target.value.trim(); renderizarPrazos(); });
+$("filtro-fonte").addEventListener("change", (e) => { filtrosPrazo.fonte = e.target.value; renderizarPrazos(); });
+$("filtro-categoria").addEventListener("change", (e) => { filtrosPrazo.categoria = e.target.value; renderizarPrazos(); });
+$("filtro-mes").addEventListener("change", (e) => { filtrosPrazo.mes = e.target.value; renderizarPrazos(); });
+$("filtro-pendentes").addEventListener("change", (e) => { filtrosPrazo.pendentes = e.target.checked; renderizarPrazos(); });
+$("filtro-limpar").addEventListener("click", () => {
+  Object.assign(filtrosPrazo, { busca: "", fonte: "", categoria: "", mes: "", pendentes: false });
+  $("filtro-busca").value = "";
+  $("filtro-fonte").value = "";
+  $("filtro-categoria").value = "";
+  $("filtro-mes").value = "";
+  $("filtro-pendentes").checked = false;
+  renderizarPrazos();
+});
 
 document.querySelectorAll(".chip-prazo").forEach((chip) => {
   chip.addEventListener("click", () => {
@@ -942,13 +1159,10 @@ $("form-inscricao").addEventListener("submit", async (e) => {
     const variou = posicaoAnterior - dados.sisu.posicao;
     msg += variou > 0 ? ` Você subiu ${variou} posiç${variou === 1 ? "ão" : "ões"} na lista.` : ` Sua posição caiu ${-variou}.`;
   }
-  showMsg("msg-inscricao-salva", msg);
-  limparDestaques();
-  statusPdf(null);
-  setTimeout(() => {
-    showMsg("msg-inscricao-salva", "");
-    mostrarSubaba("acompanhamento");
-  }, 1600);
+  // Salvou: o formulário fica limpo pra cadastrar a próxima inscrição.
+  limparFormulario();
+  showMsg("msg-inscricao-salva", msg + " O formulário foi limpo para uma nova inscrição.");
+  setTimeout(() => showMsg("msg-inscricao-salva", ""), 5000);
 });
 
 function editarInscricao(ano) {
@@ -1012,8 +1226,10 @@ function corDoAno(ano, anosComNotas) {
   return CORES_SERIES[idx % CORES_SERIES.length];
 }
 
+// Nota zerada em tudo é inscrição sem resultado (ex.: preenchida com 0), não
+// um desempenho de verdade.
 function temNotas(r) {
-  return AREAS.some((a) => typeof r.notas?.[a.chave] === "number");
+  return AREAS.some((a) => typeof r.notas?.[a.chave] === "number" && r.notas[a.chave] > 0);
 }
 
 function renderizarAcompanhamento() {
@@ -1203,6 +1419,192 @@ function htmlCartaoInscricao(r) {
     </article>`;
 }
 
+
+// ---------------------------------------------------------------------------
+// Painel "Seu desempenho" (topo do Feed): notas do último Enem, onde focar,
+// conteúdos que mais caem e dicas — a base de estudo está em dicas-enem.js.
+// ---------------------------------------------------------------------------
+function linkFonte(chave) {
+  const f = DICAS.FONTES[chave];
+  return f ? `<a href="${escapeHtml(f.url)}" target="_blank" rel="noopener" title="${escapeHtml(f.nome)}">fonte</a>` : "";
+}
+
+function htmlBarrasDesempenho(linhas, max) {
+  return linhas
+    .map((l) => {
+      const pct = typeof l.v === "number" ? Math.max(0, Math.min(100, (l.v / max) * 100)) : 0;
+      const tag = l.tag ? `<span class="pd-tag pd-tag-${l.tag.tipo}">${l.tag.tipo === "foco" ? "◎ " : "★ "}${escapeHtml(l.tag.texto)}</span>` : "";
+      return `
+        <div class="pd-linha" title="${escapeHtml(l.nome)}: ${escapeHtml(l.fmt)}">
+          <span class="pd-nome">${escapeHtml(l.nome)}</span>
+          <span class="pd-trilho"><i style="width:${pct.toFixed(1)}%"></i></span>
+          <span class="pd-valor">${escapeHtml(l.fmt)}</span>
+          <span class="pd-tag-slot">${tag}</span>
+        </div>`;
+    })
+    .join("");
+}
+
+// Resumido: 3 conteúdos de cada disciplina à mostra, o resto num "ver mais".
+function htmlConteudosDaArea(chave, resumido = true) {
+  const area = DICAS.CONTEUDOS[chave];
+  if (!area) return "";
+  if (resumido) {
+    const topo = area.grupos.map((g) => ({ ...g, itens: g.itens.slice(0, 3) }));
+    return htmlGruposConteudo(topo) +
+      `<details class="pd-mais"><summary>Ver todos os conteúdos</summary>${htmlGruposConteudo(area.grupos.map((g) => ({ ...g, itens: g.itens.slice(3), inicio: 4 })).filter((g) => g.itens.length))}</details>`;
+  }
+  return htmlGruposConteudo(area.grupos);
+}
+
+function htmlGruposConteudo(grupos) {
+  return grupos
+    .map(
+      (g) => `
+      <div class="pd-grupo">
+        <div class="pd-grupo-topo"><b>${escapeHtml(g.disciplina)}</b> ${linkFonte(g.fonte)}</div>
+        <ol${g.inicio ? ` start="${g.inicio}"` : ""}>${g.itens
+          .slice(0, 5)
+          .map(
+            (i) =>
+              `<li><div class="pd-item"><span>${escapeHtml(i.t)}${i.d ? ` <small>— ${escapeHtml(i.d)}</small>` : ""}</span>${
+                typeof i.pct === "number" ? `<em>${i.pct.toLocaleString("pt-BR")}%</em>` : ""
+              }</div></li>`
+          )
+          .join("")}</ol>
+      </div>`
+    )
+    .join("");
+}
+
+function renderizarDesempenho() {
+  const alvo = $("painel-desempenho");
+  if (!alvo) return;
+  const comNotas = todasInscricoes.filter(temNotas);
+  const estrategia = `
+    <details class="pd-estrategia">
+      <summary>Estratégia de prova e como a TRI calcula a nota</summary>
+      <ul>${DICAS.ESTRATEGIA.map((e) => `<li><b>${escapeHtml(e.t)}.</b> ${escapeHtml(e.d)} ${linkFonte(e.fonte)}</li>`).join("")}</ul>
+      <p>${escapeHtml(DICAS.TRI)} ${linkFonte("agenciaTri")}</p>
+    </details>`;
+  const rodape = `<p class="pd-rodape">Conteúdos e dicas tirados de sites de preparação para o Enem e de fontes oficiais (percentuais publicados pelas próprias fontes, dentro de cada disciplina). Base atualizada em ${DICAS.ATUALIZADO_EM}.</p>`;
+
+  if (comNotas.length === 0) {
+    alvo.innerHTML = `
+      <section class="painel-desempenho">
+        <div class="pd-topo"><div><h2>Seu desempenho</h2><p class="sub">Cadastre o boletim de um Enem pra ver onde focar os estudos.</p></div>
+          <button class="botao" type="button" data-pd-ir="cadastro">Anexar boletim</button></div>
+        ${estrategia}
+        ${rodape}
+      </section>`;
+    alvo.querySelector("[data-pd-ir]").addEventListener("click", () => { mostrarPagina("inscricao"); mostrarSubaba("cadastro"); });
+    return;
+  }
+
+  const atual = comNotas[0];
+  const anterior = comNotas[1];
+  const objetivas = AREAS.filter((a) => a.chave !== "redacao" && typeof atual.notas?.[a.chave] === "number");
+  const ordenadas = [...objetivas].sort((a, b) => atual.notas[a.chave] - atual.notas[b.chave]);
+  const maisBaixa = ordenadas[0];
+  const maisAlta = ordenadas[ordenadas.length - 1];
+  const equilibrado = ordenadas.length > 1 && atual.notas[maisAlta.chave] - atual.notas[maisBaixa.chave] < 20;
+  // Foco: as duas mais baixas (ou uma, se só tiver duas provas), mais qualquer
+  // área que caiu mais de 20 pontos em relação à edição anterior.
+  const foco = new Set(equilibrado ? [] : ordenadas.slice(0, Math.min(2, ordenadas.length - 1)).map((a) => a.chave));
+  const quedas = anterior
+    ? objetivas.filter((a) => typeof anterior.notas?.[a.chave] === "number" && atual.notas[a.chave] - anterior.notas[a.chave] <= -20).map((a) => a.chave)
+    : [];
+  quedas.forEach((k) => foco.add(k));
+
+  const linhasNotas = AREAS.filter((a) => typeof atual.notas?.[a.chave] === "number").map((a) => {
+    let tag = null;
+    if (a.chave !== "redacao" && foco.has(a.chave)) tag = { tipo: "foco", texto: quedas.includes(a.chave) && !ordenadas.slice(0, 2).some((o) => o.chave === a.chave) ? "caiu" : "foco" };
+    else if (!equilibrado && maisAlta && a.chave === maisAlta.chave) tag = { tipo: "forte", texto: "mais forte" };
+    return { nome: a.curto, v: atual.notas[a.chave], fmt: fmtProva(a.chave, atual.notas[a.chave]), tag };
+  });
+
+  const comps = (atual.competencias || []).map((c, i) => ({ n: i + 1, v: c })).filter((c) => typeof c.v === "number");
+  const compFraca = comps.length ? [...comps].sort((a, b) => a.v - b.v)[0] : null;
+  const linhasComp = comps.map((c) => ({
+    nome: `C${c.n} · ${DICAS.COMPETENCIAS[c.n - 1].curto}`,
+    v: c.v,
+    fmt: String(c.v),
+    tag: compFraca && c.n === compFraca.n && compFraca.v < 200 ? { tipo: "foco", texto: "foco" } : c.v === 200 ? { tipo: "forte", texto: "nota máxima" } : null,
+  }));
+
+  const delta = anterior ? htmlDelta(atual.mediaGeral, anterior.mediaGeral, anterior.ano) : "";
+
+  const cartoesFoco = [...foco]
+    .map((k) => {
+      const a = AREAS.find((x) => x.chave === k);
+      const motivo = quedas.includes(k) && anterior
+        ? `caiu ${fmtDelta(Math.round((atual.notas[k] - anterior.notas[k]) * 10) / 10).replace("−", "")} pontos desde ${anterior.ano}`
+        : k === maisBaixa.chave ? "sua nota mais baixa" : "segunda nota mais baixa";
+      return `
+        <article class="pd-cartao">
+          <h4>${escapeHtml(a.nome)} <span>${fmtProva(k, atual.notas[k])} · ${escapeHtml(motivo)}</span></h4>
+          <p class="pd-sub">O que mais cai no Enem nessa área:</p>
+          ${htmlConteudosDaArea(k)}
+        </article>`;
+    })
+    .join("");
+
+  let cartaoRedacao = "";
+  if (compFraca && compFraca.v < 200) {
+    const c = DICAS.COMPETENCIAS[compFraca.n - 1];
+    cartaoRedacao = `
+      <article class="pd-cartao">
+        <h4>Redação — Competência ${c.n} <span>${compFraca.v} de 200 · sua competência mais baixa</span></h4>
+        <p class="pd-sub">${escapeHtml(c.nome)}: avalia ${escapeHtml(c.avalia)}. ${linkFonte(c.fonte)}</p>
+        <ul class="pd-dicas">${c.dicas.map((d) => `<li>${escapeHtml(d)}</li>`).join("")}</ul>
+      </article>`;
+  } else if (!comps.length && typeof atual.notas?.redacao === "number" && atual.notas.redacao < 1000) {
+    cartaoRedacao = `
+      <article class="pd-cartao">
+        <h4>Redação <span>${fmtProva("redacao", atual.notas.redacao)} · anexe a Vista Pedagógica pra ver por competência</span></h4>
+        <ul class="pd-dicas">${DICAS.COMPETENCIAS.map((c) => `<li><b>C${c.n} · ${escapeHtml(c.nome)}:</b> ${escapeHtml(c.dicas[0])}</li>`).join("")}</ul>
+        <p class="pd-sub">${escapeHtml(DICAS.ZERA_REDACAO)} ${linkFonte("agenciaCartilha")}</p>
+      </article>`;
+  }
+
+  const semFoco = !cartoesFoco && !cartaoRedacao
+    ? `<p class="pd-sub">Suas notas estão equilibradas entre as áreas${equilibrado ? " (diferença menor que 20 pontos)" : ""}. Veja abaixo o que mais cai em cada uma e a estratégia de prova.</p>`
+    : "";
+
+  alvo.innerHTML = `
+    <section class="painel-desempenho">
+      <div class="pd-topo">
+        <div>
+          <h2>Seu desempenho</h2>
+          <p class="sub">Enem ${atual.ano}${anterior ? ` · comparado com ${anterior.ano}` : ""}</p>
+        </div>
+        <div class="pd-media">
+          <span>Média geral</span>
+          <b>${fmtMedia(atual.mediaGeral)}</b>
+          ${delta ? `<small>${delta}</small>` : ""}
+        </div>
+      </div>
+      <div class="pd-grade ${linhasComp.length ? "" : "pd-grade-uma"}">
+        <div class="pd-bloco">
+          <h3>Notas por prova <small>0 a 1000</small></h3>
+          ${htmlBarrasDesempenho(linhasNotas, 1000)}
+        </div>
+        ${linhasComp.length ? `<div class="pd-bloco"><h3>Redação por competência <small>0 a 200</small></h3>${htmlBarrasDesempenho(linhasComp, 200)}</div>` : ""}
+      </div>
+      <h3 class="pd-titulo-foco">Onde focar</h3>
+      ${semFoco}
+      <div class="pd-cartoes">${cartoesFoco}${cartaoRedacao}</div>
+      <details class="pd-estrategia">
+        <summary>O que mais cai nas outras áreas</summary>
+        <div class="pd-cartoes">${AREAS.filter((a) => a.chave !== "redacao" && !foco.has(a.chave))
+          .map((a) => `<article class="pd-cartao"><h4>${escapeHtml(a.nome)}${typeof atual.notas?.[a.chave] === "number" ? ` <span>${fmtProva(a.chave, atual.notas[a.chave])}</span>` : ""}</h4>${htmlConteudosDaArea(a.chave)}</article>`)
+          .join("")}</div>
+      </details>
+      ${estrategia}
+      ${rodape}
+    </section>`;
+}
+
 // ---------------------------------------------------------------------------
 // Painel da direita (telas largas)
 // ---------------------------------------------------------------------------
@@ -1210,19 +1612,21 @@ const MESES_CURTOS = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "s
 
 function renderizarLateral() {
   const hoje = inicioDoDia(new Date());
-  const proximos = todosOsPrazos
-    .filter((p) => p.quando && diaDoPrazo(p.quando) >= hoje && !prazosConfirmados.has(p.id))
+  const proximos = prazosValidos()
+    .filter((p) => diaDoPrazo(p.quando) >= hoje && !prazosConfirmados.has(p.id))
     .sort((a, b) => a.quando - b.quando)
     .slice(0, 5);
 
   $("lateral-prazos").innerHTML = proximos.length
     ? proximos
         .map((p) => {
-          const desc = (p.descricao || "").length > 90 ? p.descricao.slice(0, 88).trim() + "…" : p.descricao || "";
+          const info = infoPrazo(p);
+          const oque = info.oQueFazer.join(" + ");
+          const desc = oque.length > 90 ? oque.slice(0, 88).replace(/\s\S*$/, "").replace(/\s*\+$/, "") + "…" : oque;
           return `
             <div class="item-lateral">
               <div class="data-caixa"><b>${p.quando.getUTCDate()}</b><small>${MESES_CURTOS[p.quando.getUTCMonth()]}</small></div>
-              <div><strong>${escapeHtml(p.categoria || "Prazo")} · ${escapeHtml(p.fonte || "")}</strong>${escapeHtml(desc)}</div>
+              <div><strong>${escapeHtml(info.titulo)} · ${escapeHtml(p.fonte || "")}</strong>${escapeHtml(desc)}</div>
             </div>`;
         })
         .join("")
