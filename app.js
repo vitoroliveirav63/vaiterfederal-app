@@ -637,11 +637,6 @@ const CAMPO_PARA_INPUT = {
   lingua: "insc-lingua",
   dia1: "insc-dia1",
   dia2: "insc-dia2",
-  "local-escola": "insc-escola",
-  "local-endereco": "insc-endereco",
-  "local-municipio": "insc-municipio",
-  "local-sala": "insc-sala",
-  "local-bloco": "insc-bloco",
   "nota-lc": "insc-nota-lc",
   "nota-ch": "insc-nota-ch",
   "nota-cn": "insc-nota-cn",
@@ -678,13 +673,6 @@ function lerFormulario() {
     treineiro: $("insc-treineiro").checked,
     dia1: textoOuNull("insc-dia1"),
     dia2: textoOuNull("insc-dia2"),
-    local: {
-      escola: textoOuNull("insc-escola"),
-      endereco: textoOuNull("insc-endereco"),
-      municipio: textoOuNull("insc-municipio"),
-      sala: textoOuNull("insc-sala"),
-      bloco: textoOuNull("insc-bloco"),
-    },
     notas,
     competencias: [1, 2, 3, 4, 5].map((i) => numOuNull("insc-comp-" + i)),
     mediaGeral: mediaDasNotas(notas),
@@ -704,12 +692,6 @@ function preencherFormulario(r) {
   $("insc-treineiro").checked = !!r.treineiro;
   definir("insc-dia1", r.dia1);
   definir("insc-dia2", r.dia2);
-  const l = r.local || {};
-  definir("insc-escola", l.escola);
-  definir("insc-endereco", l.endereco);
-  definir("insc-municipio", l.municipio);
-  definir("insc-sala", l.sala);
-  definir("insc-bloco", l.bloco);
   AREAS.forEach((a) => definir("insc-nota-" + a.chave, r.notas?.[a.chave]));
   [1, 2, 3, 4, 5].forEach((i) => definir("insc-comp-" + i, r.competencias?.[i - 1]));
   const s = r.sisu || {};
@@ -790,6 +772,9 @@ function mesclarLeitura(base, lido) {
   if (lido.dia1) r.dia1 = lido.dia1;
   if (lido.dia2) r.dia2 = lido.dia2;
   for (const [k, v] of Object.entries(lido.local || {})) if (v) r.local[k] = v;
+  for (const [k, v] of Object.entries(lido.sisu || {})) {
+    if (v !== null && v !== undefined && k !== "historico") r.sisu = { ...(r.sisu || {}), [k]: v };
+  }
   for (const [k, v] of Object.entries(lido.notas || {})) if (v !== null) r.notas[k] = v;
   (lido.competencias || []).forEach((v, i) => {
     if (v !== null) r.competencias[i] = v;
@@ -820,7 +805,7 @@ async function importarPdfs(arquivos) {
         continue;
       }
       acumulado = mesclarLeitura(acumulado, lido);
-      lido.camposEncontrados.forEach((c) => encontrados.add(c));
+      lido.camposEncontrados.filter((c) => CAMPO_PARA_INPUT[c]).forEach((c) => encontrados.add(c));
     } catch (erro) {
       console.error("Falha ao ler PDF", erro);
       statusPdf("falha", `Não consegui abrir ${arquivo.name}. Ele pode estar protegido por senha ou corrompido.`);
@@ -836,16 +821,26 @@ async function importarPdfs(arquivos) {
     return;
   }
 
-  // Se já existe inscrição desse ano, parte dela e completa com o PDF.
-  const existente = acumulado.ano ? todasInscricoes.find((i) => i.ano === acumulado.ano) : null;
-  const final = mesclarLeitura(existente || {}, acumulado);
-  if (existente?.sisu) final.sisu = existente.sisu;
+  // Parte do que já existe e completa com o PDF, nesta ordem: a inscrição já
+  // salva desse ano → o que está no formulário agora (se for o mesmo ano, ou
+  // se o ano ainda estiver vazio) → o que veio do PDF. Assim dá pra anexar o
+  // boletim e a Vista Pedagógica um de cada vez, sem um apagar o outro.
+  const naTela = lerFormulario();
+  const ano = acumulado.ano || naTela.ano;
+  const existente = ano ? todasInscricoes.find((i) => i.ano === ano) : null;
+  let base = existente || {};
+  if (!naTela.ano || !acumulado.ano || naTela.ano === acumulado.ano) base = mesclarLeitura(base, naTela);
+  const final = mesclarLeitura(base, { ...acumulado, ano });
   preencherFormulario(final);
+  document.querySelectorAll("#form-inscricao .lido-do-pdf input, #form-inscricao .lido-do-pdf select").forEach((el) => {
+    const campo = Object.keys(CAMPO_PARA_INPUT).find((k) => CAMPO_PARA_INPUT[k] === el.id);
+    if (campo) encontrados.add(campo);
+  });
   destacarCampos(encontrados);
 
   let msg = `Li ${encontrados.size} informaç${encontrados.size === 1 ? "ão" : "ões"} de ${pdfs.length === 1 ? pdfs[0].name : pdfs.length + " arquivos"}. Confira os campos destacados e clique em Salvar.`;
   if (existente) msg += ` Você já tinha o Enem ${existente.ano} cadastrado — juntei os dados novos com os que já estavam lá.`;
-  if (!acumulado.ano) msg += " Não achei o ano no PDF: preencha o campo Ano antes de salvar.";
+  if (!ano) msg += " Não achei o ano no PDF: preencha o campo Ano antes de salvar.";
   if (semTexto.length) msg += ` (Sem texto reconhecível: ${semTexto.join(", ")}.)`;
   statusPdf("ok", msg);
   $("form-inscricao").scrollIntoView({ behavior: "smooth", block: "start" });
@@ -1138,14 +1133,9 @@ function htmlTabela(comNotas) {
 }
 
 function htmlCartaoInscricao(r) {
-  const l = r.local || {};
   const s = r.sisu || {};
   const dados = [];
   if (r.numeroInscricao) dados.push(["Inscrição", r.numeroInscricao]);
-  const local = [l.escola, l.endereco, l.municipio].filter(Boolean).join(" — ");
-  if (local) dados.push(["Local de prova", local]);
-  const salaBloco = [l.sala ? `Sala ${l.sala}` : null, l.bloco ? `Bloco ${l.bloco}` : null].filter(Boolean).join(" · ");
-  if (salaBloco) dados.push(["Sala", salaBloco]);
   const dias = [r.dia1, r.dia2].filter(Boolean).map(isoParaBr).join(" e ");
   if (dias) dados.push(["Dias de prova", dias]);
   if (r.linguaEstrangeira) dados.push(["Língua estrangeira", r.linguaEstrangeira]);
