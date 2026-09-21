@@ -204,10 +204,10 @@ function notaDoRotulo(linhas, padrao, valida, corrigir = (n) => n) {
 // O OCR às vezes troca dígito por letra parecida ("415,4" virou "415A").
 // Só mexe em "palavras" que já têm algum dígito e são feitas só de dígitos e
 // dessas letras — "Presente", "Ausente" etc. ficam intactas.
-const LETRA_PARA_DIGITO = { A: "4", O: "0", o: "0", D: "0", I: "1", l: "1", "|": "1", S: "5", s: "5", B: "8", Z: "2", G: "6" };
+const LETRA_PARA_DIGITO = { A: "4", O: "0", o: "0", D: "0", I: "1", l: "1", "|": "1", T: "1", S: "5", s: "5", B: "8", Z: "2", G: "6" };
 function corrigirDigitosOcr(texto) {
-  return texto.replace(/[\dAODoIl|SsBZG]+(?:[.,][\dAODoIl|SsBZG]+)?/g, (token) =>
-    /\d/.test(token) ? token.replace(/[AODoIl|SsBZG]/g, (c) => LETRA_PARA_DIGITO[c]) : token
+  return texto.replace(/[\dAODoIl|TSsBZG]+(?:[.,][\dAODoIl|TSsBZG]+)?/g, (token) =>
+    /\d/.test(token) ? token.replace(/[AODoIl|TSsBZG]/g, (c) => LETRA_PARA_DIGITO[c]) : token
   );
 }
 
@@ -292,6 +292,47 @@ export function interpretarLinhas(linhas) {
     const resto = linha.slice(m.index + m[0].length);
     const n = numerosDaLinha(resto).find((v) => Number.isInteger(v) && v >= 0 && v <= 200);
     if (n !== undefined && r.competencias[Number(m[1]) - 1] === null) r.competencias[Number(m[1]) - 1] = n;
+  }
+
+  // "Vista Pedagógica" do Inep: o título "Competência 1" fica sozinho numa
+  // linha e a nota vem mais abaixo, em "Sua nota nessa competência foi: 160".
+  // Se o OCR pular algum título, vale a ordem: o documento sempre lista as
+  // competências de 1 a 5, então a nota vai pra próxima que ainda está vazia.
+  let competenciaAtual = null;
+  let ultimaPreenchida = 0;
+  for (const linha of linhas) {
+    const titulo = linha.match(/^\s*compet[êe]ncia\s*([1-5])\b.{0,3}$/i);
+    if (titulo) {
+      competenciaAtual = Number(titulo[1]);
+      continue;
+    }
+    const nota = corrigirDigitosOcr(linha).match(/nota\s+nessa\s+compet[êe]ncia\s+foi\s*:?\s*(\d{1,3})\b/i);
+    if (!nota) continue;
+    const v = Number(nota[1]);
+    let alvo = competenciaAtual && r.competencias[competenciaAtual - 1] === null ? competenciaAtual : null;
+    if (!alvo) {
+      for (let k = ultimaPreenchida + 1; k <= 5; k++) {
+        if (r.competencias[k - 1] === null) {
+          alvo = k;
+          break;
+        }
+      }
+    }
+    if (alvo && v <= 200) {
+      r.competencias[alvo - 1] = v;
+      ultimaPreenchida = alvo;
+    }
+    competenciaAtual = null;
+  }
+  if (r.notas.redacao === null) {
+    const final = corrigirDigitosOcr(texto).match(/nota\s+final\s+foi\s*:?\s*(\d{1,4})\b/i);
+    if (final && Number(final[1]) <= 1000) r.notas.redacao = Number(final[1]);
+  }
+  // A nota da redação é a soma das 5 competências. Com as cinco em mãos, a
+  // soma vale mais que uma nota final lida errado pelo OCR ("8240" em vez de 840).
+  if (r.competencias.every((c) => typeof c === "number")) {
+    const soma = r.competencias.reduce((a, b) => a + b, 0);
+    if (r.notas.redacao === null || r.notas.redacao !== soma) r.notas.redacao = soma;
   }
 
   const notas = [r.notas.lc, r.notas.ch, r.notas.cn, r.notas.mt, r.notas.redacao];
