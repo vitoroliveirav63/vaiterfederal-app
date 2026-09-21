@@ -70,7 +70,7 @@ export async function lerLinhasDoPdf(arquivo, pdfjsInjetado, avisar = () => {}) 
 
 // ---------------------------------------------------------------------------
 // OCR (reconhecimento de texto em imagem) — também 100% no navegador.
-// Usa o Tesseract.js; na primeira vez baixa o motor e o português (~5 MB),
+// Usa o Tesseract.js; na primeira vez baixa o motor e o português (alguns MB),
 // depois fica no cache do navegador.
 // ---------------------------------------------------------------------------
 const TESSERACT = "https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.esm.min.js";
@@ -111,16 +111,64 @@ export function prepararParaOcr(rgba, largura, altura) {
   }
 }
 
+// O "leitor" do OCR (motor + português) é carregado UMA vez e fica pronto para
+// os próximos PDFs. Se ninguém usar por 2 minutos, ele é desligado pra liberar
+// memória.
+let workerPromessa = null;
+let desligarTimer = null;
+let avisoAtual = () => {};
+
+function carregarWorkerOcr() {
+  clearTimeout(desligarTimer);
+  if (!workerPromessa) {
+    workerPromessa = (async () => {
+      const modulo = await import(TESSERACT);
+      const Tesseract = modulo.default || modulo;
+      return await Tesseract.createWorker("por", 1, {
+        logger: (m) => avisoAtual(m),
+      });
+    })().catch((erro) => {
+      workerPromessa = null;
+      throw erro;
+    });
+  }
+  return workerPromessa;
+}
+
+function agendarDesligamento() {
+  clearTimeout(desligarTimer);
+  desligarTimer = setTimeout(async () => {
+    const w = workerPromessa;
+    workerPromessa = null;
+    if (w) (await w.catch(() => null))?.terminate();
+  }, 120000);
+}
+
+const segundos = (t0) => Math.round((performance.now() - t0) / 1000);
+
 async function lerComOcr(pdf, avisar) {
-  avisar("Esse PDF é uma imagem (sem texto dentro). Lendo com reconhecimento de texto — na primeira vez demora um pouquinho…");
-  const modulo = await import(TESSERACT);
-  const Tesseract = modulo.default || modulo;
-  const worker = await Tesseract.createWorker("por");
+  const inicio = performance.now();
+  const paginas = Math.min(pdf.numPages, 4);
+  let paginaAtual = 0;
+  avisoAtual = (m) => {
+    const pct = Math.round((m.progress || 0) * 100);
+    if (paginaAtual === 0) {
+      if (/load|download|initializ/i.test(m.status || "")) avisar(`Preparando o leitor de imagem (só na primeira vez)… ${pct}% · ${segundos(inicio)}s`);
+    } else if (/recogniz/i.test(m.status || "")) {
+      avisar(`Lendo a página ${paginaAtual} de ${paginas}… ${pct}% · ${segundos(inicio)}s`);
+    }
+  };
+  avisar("Esse PDF é uma imagem (sem texto dentro). Preparando o leitor de imagem…");
+  const worker = await carregarWorkerOcr();
   const linhas = [];
   try {
-    for (let p = 1; p <= Math.min(pdf.numPages, 4); p++) {
+    for (let p = 1; p <= paginas; p++) {
+      paginaAtual = p;
+      avisar(`Lendo a página ${p} de ${paginas}… · ${segundos(inicio)}s`);
       const pagina = await pdf.getPage(p);
-      const viewport = pagina.getViewport({ scale: 4 });
+      // Escala 3 (~220 dpi): nos testes com os PDFs do Inep leu tudo certo e
+      // é mais rápida que a 4.
+      const viewport = pagina.getViewport({ scale: 3 });
       const canvas = document.createElement("canvas");
       canvas.width = Math.ceil(viewport.width);
       canvas.height = Math.ceil(viewport.height);
@@ -133,10 +181,13 @@ async function lerComOcr(pdf, avisar) {
       ctx.putImageData(imagem, 0, 0);
       const { data } = await worker.recognize(canvas);
       linhas.push(...data.text.split("\n").map((l) => l.trim()).filter(Boolean));
+      canvas.width = canvas.height = 0;
     }
   } finally {
-    await worker.terminate();
+    avisoAtual = () => {};
+    agendarDesligamento();
   }
+  linhas.segundos = segundos(inicio);
   return linhas;
 }
 
@@ -285,6 +336,35 @@ export function interpretarLinhas(linhas) {
     (n) => n >= 0 && n <= 1000 && Number.isInteger(n)
   );
 
+  // Plano B: às vezes a tabela sai "em colunas" — primeiro os cinco nomes das
+  // provas, depois os cinco números, um por linha. Se faltar alguma nota e
+  // houver pelo menos cinco linhas só com número depois dos rótulos, casa na
+  // ordem em que o boletim sempre lista: LC, CH, CN, MT, Redação.
+  const idxRotulos = [...AREAS.map((a) => a.padrao), REDACAO].map((re) =>
+    linhas.findIndex((l) => re.test(l) && quantosRotulos(l) === 1 && !/compet[êe]ncia/i.test(l))
+  );
+  const rotulosSemNumero =
+    idxRotulos.every((i) => i >= 0) &&
+    idxRotulos.every((i) => numerosDaLinha(corrigirDigitosOcr(linhas[i])).length === 0);
+  if (rotulosSemNumero && idxRotulos.filter((i, k) => k < 4 && r.notas[["lc", "ch", "cn", "mt"][k]] === null).length) {
+    {
+      const apos = Math.min(...idxRotulos);
+      const soltos = [];
+      for (let i = apos; i < linhas.length && soltos.length < 5; i++) {
+        const l = corrigirDigitosOcr(linhas[i]);
+        if (!soNumero(l)) continue;
+        const n = numerosDaLinha(l)[0];
+        if (n !== undefined && n >= 0 && n <= 10000) soltos.push(n);
+      }
+      if (soltos.length === 5) {
+        ["lc", "ch", "cn", "mt"].forEach((k, i) => {
+          r.notas[k] = corrigirVirgulaPerdida(soltos[i]);
+        });
+        r.notas.redacao = Number.isInteger(soltos[4]) && soltos[4] <= 1000 ? soltos[4] : null;
+      }
+    }
+  }
+
   // Competências da redação (0 a 200 cada).
   for (const linha of linhas) {
     const m = linha.match(/compet[êe]ncia\s*([1-5])\b/i);
@@ -377,5 +457,13 @@ export function interpretarLinhas(linhas) {
 
 export async function lerPdfDoEnem(arquivo, avisar) {
   const linhas = await lerLinhasDoPdf(arquivo, null, avisar);
-  return interpretarLinhas(linhas);
+  const r = interpretarLinhas(linhas);
+  // Pra conferir quando alguma nota não vier: só as linhas das provas (sem
+  // nome nem CPF), do jeito que o leitor enxergou.
+  r.linhasDasNotas = linhas
+    .filter((l) => quantosRotulos(l) >= 1 && l.length < 120 && !/compet[êe]ncia/i.test(l))
+    .map((l) => l.replace(/\d{3}\.?\d{3}\.?\d{3}-?\d{2}/g, "[CPF]"))
+    .slice(0, 8);
+  r.segundos = linhas.segundos ?? null;
+  return r;
 }
