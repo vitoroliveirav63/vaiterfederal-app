@@ -29,8 +29,8 @@ import {
   getToken,
   isSupported,
 } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-messaging.js";
-import { lerPdfDoEnem } from "./leitor-pdf.js?v=20260922c";
-import * as DICAS from "./dicas-enem.js?v=20260922c";
+import { lerPdfDoEnem } from "./leitor-pdf.js?v=20260922d";
+import * as DICAS from "./dicas-enem.js?v=20260922d";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDuG755MrvWbhSRPaPtSuVM_K8QNNkopHU",
@@ -318,7 +318,7 @@ function entrarNoApp() {
     renderizarPrazos();
     renderizarLateral();
   });
-  escutar("feed", query(collection(db, "noticias"), orderBy("atualizadoEm", "desc"), limit(60)), (snap) => {
+  escutar("feed", query(collection(db, "noticias"), orderBy("atualizadoEm", "desc"), limit(250)), (snap) => {
     ultimosItensFeed = snap.docs.map((d) => d.data());
     renderizarFeed();
   });
@@ -488,9 +488,40 @@ function htmlBlocos(blocos) {
   return html;
 }
 
+// Datas do SITE: quando foi publicado e quando foi atualizado pela última vez.
+// Sem data no site, usa quando o robô viu a mudança (ou a postagem) primeiro.
+function paraDate(ts) {
+  return ts?.toDate ? ts.toDate() : ts instanceof Date ? ts : null;
+}
+function dataDoItem(item) {
+  // (Não usa "atualizadoEm": é a hora da última leitura do robô, muda toda hora.)
+  return paraDate(item.atualizadoNoSite) || paraDate(item.publicadoEm) || paraDate(item.mudouEm) || paraDate(item.novoEm);
+}
+function fmtDataSite(ts, comHora) {
+  const d = paraDate(ts);
+  if (!d) return "";
+  const opc = { timeZone: "America/Fortaleza", day: "2-digit", month: "2-digit", year: "numeric" };
+  if (comHora) Object.assign(opc, { hour: "2-digit", minute: "2-digit" });
+  return d.toLocaleString("pt-BR", opc);
+}
+function textoDatasDoItem(item) {
+  const pub = fmtDataSite(item.publicadoEm, item.publicadoComHora);
+  const atu = fmtDataSite(item.atualizadoNoSite, item.atualizadoComHora);
+  if (pub && atu) return `Publicado em ${pub} · Atualizado em ${atu}`;
+  if (atu) return `Atualizado no site em ${atu}`;
+  if (pub) return `Publicado em ${pub}`;
+  if (item.mudouEm) return `Mudança vista em ${formatarDataHora(item.mudouEm)} (o site não informa a data)`;
+  return item.novoEm ? `Visto pela primeira vez em ${formatarDataHora(item.novoEm)} (o site não informa a data)` : "O site não informa a data";
+}
+
+let feedMostrando = 30;
+
 function renderizarFeed() {
   const lista = $("feed-lista");
-  const itens = filtroFeedAtual === "todos" ? ultimosItensFeed : ultimosItensFeed.filter((it) => it.fonte === filtroFeedAtual);
+  const filtrados = filtroFeedAtual === "todos" ? ultimosItensFeed : ultimosItensFeed.filter((it) => it.fonte === filtroFeedAtual);
+  // Mais recente no site primeiro.
+  const ordenados = [...filtrados].sort((a, b) => (dataDoItem(b)?.getTime() || 0) - (dataDoItem(a)?.getTime() || 0));
+  const itens = ordenados.slice(0, feedMostrando);
 
   lista.innerHTML = "";
   if (itens.length === 0) {
@@ -499,10 +530,13 @@ function renderizarFeed() {
   }
 
   itens.forEach((item) => {
-    const marcadorNovo = ehRecente(item.mudouEm) || ehRecente(item.novoEm);
+    // "Atualizado" = o site publicou/atualizou nas últimas 48h (ou, sem data no
+    // site, o robô viu a mudança nesse período).
+    const dataSite = paraDate(item.atualizadoNoSite) || paraDate(item.publicadoEm);
+    const marcadorNovo = dataSite ? Date.now() - dataSite.getTime() < 48 * 3600e3 : ehRecente(item.mudouEm) || ehRecente(item.novoEm);
     const imagens = Array.isArray(item.imagens) ? item.imagens : [];
     const anexos = Array.isArray(item.anexos) ? item.anexos : [];
-    const dataExibida = formatarDataHora(item.mudouEm || item.novoEm || item.atualizadoEm);
+    const dataExibida = textoDatasDoItem(item);
     const blocos = Array.isArray(item.blocos) && item.blocos.length ? item.blocos : null;
     const corpoTexto = limparCorpo(item.corpo);
     const corpoLongo = blocos ? blocos.length > 3 || corpoTexto.length > 320 : corpoTexto.length > 320;
@@ -528,7 +562,7 @@ function renderizarFeed() {
           : ""
       }
       <div class="cartao-rodape">
-        <span class="cartao-data">${escapeHtml(dataExibida || item.publicadoEmTexto || "")}</span>
+        <span class="cartao-data">${escapeHtml(dataExibida)}</span>
         ${item.link ? `<a href="${escapeHtml(item.link)}" target="_blank" rel="noopener">Ver publicação original →</a>` : ""}
       </div>
     `;
@@ -542,6 +576,17 @@ function renderizarFeed() {
     }
     lista.appendChild(cartao);
   });
+  if (ordenados.length > itens.length) {
+    const mais = document.createElement("button");
+    mais.className = "botao-secundario botao-mais-feed";
+    mais.type = "button";
+    mais.textContent = `Mostrar mais (${ordenados.length - itens.length})`;
+    mais.addEventListener("click", () => {
+      feedMostrando += 30;
+      renderizarFeed();
+    });
+    lista.appendChild(mais);
+  }
 }
 
 document.querySelectorAll("#pagina-feed .chip").forEach((chip) => {
@@ -549,6 +594,7 @@ document.querySelectorAll("#pagina-feed .chip").forEach((chip) => {
     document.querySelectorAll("#pagina-feed .chip").forEach((c) => c.classList.remove("chip-ativo"));
     chip.classList.add("chip-ativo");
     filtroFeedAtual = chip.dataset.filtro;
+    feedMostrando = 30;
     renderizarFeed();
   });
 });
