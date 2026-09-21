@@ -450,14 +450,24 @@
   .trecho-original { font-size: 0.8rem; color: var(--tinta-2); margin: 4px 0 8px; }
   .trecho-original summary { cursor: pointer; color: var(--azul); }
   .trecho-original p { margin: 6px 0 0; }
-  .filtros-prazo { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 8px; margin: 4px 0 8px; }
+  .filtros-prazo { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin: 4px 0 8px; align-items: center; }
+  .filtros-prazo input[type=search] { grid-column: 1 / -1; }
+  .filtro-datas { grid-column: 1 / -1; display: flex; align-items: center; gap: 8px; font-size: 0.84rem; color: var(--tinta-2); }
+  .filtro-datas input { flex: 1; min-width: 0; font: inherit; font-size: 0.86rem; padding: 8px 10px; border: 1px solid var(--borda); border-radius: 10px; }
+  .grupo-prazos { font-size: 0.78rem; text-transform: uppercase; letter-spacing: .05em; color: var(--tinta-2); margin: 18px 0 8px; }
+  .grupo-prazos:first-child { margin-top: 4px; }
+  .links-prazo { display: flex; gap: 14px; }
+  .etiqueta-origem { background: var(--cartao-2); border: 1px solid var(--borda); }
+  .contexto-prazo { margin: 4px 0 0; font-size: 0.78rem; color: var(--tinta-3); }
+  .quando-lateral { display: block; font-size: 0.75rem; color: var(--tinta-3); margin-top: 2px; }
+  .data-caixa small:first-child { font-size: 0.6rem; }
   .filtros-prazo input[type=search], .filtros-prazo select {
     font: inherit; font-size: 0.86rem; padding: 9px 11px; border: 1px solid var(--borda); border-radius: 10px; background: var(--cartao); color: var(--tinta); min-width: 0;
   }
-  .filtros-prazo .filtro-check { grid-column: 1 / -1; font-size: 0.84rem; color: var(--tinta-2); display: flex; align-items: center; gap: 8px; margin: 2px 0 0; text-transform: none; letter-spacing: 0; font-weight: 400; cursor: pointer; }
+  .filtros-prazo .filtro-check { grid-column: span 3; font-size: 0.84rem; color: var(--tinta-2); display: flex; align-items: center; gap: 8px; margin: 2px 0 0; text-transform: none; letter-spacing: 0; font-weight: 400; cursor: pointer; }
   .filtros-prazo .filtro-check input { width: auto; margin: 0; accent-color: var(--marinho); }
   .linha-contagem { display: flex; justify-content: space-between; align-items: center; font-size: 0.8rem; color: var(--tinta-3); margin-bottom: 10px; min-height: 22px; }
-  @media (max-width: 760px) { .filtros-prazo { grid-template-columns: 1fr 1fr; } .filtros-prazo input[type=search] { grid-column: 1 / -1; } }
+  @media (max-width: 760px) { .filtros-prazo { grid-template-columns: 1fr 1fr; } .filtros-prazo input[type=search], .filtro-datas, .filtros-prazo .filtro-check { grid-column: 1 / -1; } }
 
   /* Instagram no celular (no computador fica no painel da direita) */
   .instagram-celular { margin-top: 16px; }
@@ -694,22 +704,26 @@
         <section id="pagina-prazos" class="pagina">
           <div class="cabecalho-pagina">
             <h1>Prazos</h1>
-            <p>Toda data publicada pela UFC e pelo IFCE — chamada regular, lista de espera, suplentes, matrícula e documentação.</p>
-          </div>
-          <div class="chips">
-            <button class="chip chip-prazo chip-ativo" data-prazo-filtro="proximos" type="button">Próximos</button>
-            <button class="chip chip-prazo" data-prazo-filtro="passados" type="button">Já passaram</button>
-            <button class="chip chip-prazo" data-prazo-filtro="todos" type="button">Tudo</button>
+            <p>Toda data publicada pela UFC e pelo IFCE — Sisu, editais da Prograd e da PRAE, seleções do IFCE, calendários e o que mais sair, lido das páginas e dos PDFs.</p>
           </div>
           <div class="filtros-prazo" role="search">
-            <input id="filtro-busca" type="search" placeholder="Buscar: heteroidentificação, 10ª convocação, 25/09…" aria-label="Buscar nos prazos" />
-            <select id="filtro-fonte" aria-label="Instituição">
-              <option value="">UFC e IFCE</option>
-              <option value="UFC">Só UFC</option>
-              <option value="IFCE">Só IFCE</option>
+            <input id="filtro-busca" type="search" placeholder="Buscar: recurso, heteroidentificação, 10ª convocação…" aria-label="Buscar nos prazos" />
+            <select id="filtro-periodo" aria-label="Período">
+              <option value="proximos">Daqui pra frente</option>
+              <option value="7">Próximos 7 dias</option>
+              <option value="30">Próximos 30 dias</option>
+              <option value="mes">Este mês</option>
+              <option value="passados">Já passaram</option>
+              <option value="tudo">Tudo</option>
+              <option value="datas">Escolher datas…</option>
             </select>
+            <select id="filtro-etapa" aria-label="Etapa"><option value="">Todas as etapas</option></select>
             <select id="filtro-categoria" aria-label="Situação"><option value="">Todas as situações</option></select>
-            <select id="filtro-mes" aria-label="Mês"><option value="">Qualquer mês</option></select>
+            <div id="filtro-datas" class="filtro-datas oculto">
+              <span>De</span><input id="filtro-de" type="date" aria-label="De" />
+              <span>até</span><input id="filtro-ate" type="date" aria-label="Até" />
+            </div>
+            <select id="filtro-fonte" aria-label="Origem"><option value="">UFC e IFCE — tudo</option></select>
             <label class="filtro-check"><input id="filtro-pendentes" type="checkbox" /> Só o que falta providenciar</label>
           </div>
           <div class="linha-contagem"><span id="prazos-contagem"></span><button id="filtro-limpar" class="link-lateral oculto" type="button">Limpar filtros</button></div>
@@ -821,6 +835,14 @@
               <div class="toggle-linha"><span>Notificação push</span><input type="checkbox" id="config-push" /></div>
               <div class="toggle-linha"><span>Notificação por e-mail</span><input type="checkbox" id="config-email-toggle" /></div>
               <div class="toggle-linha"><span>Alerta urgente (prazo em menos de 24h)</span><input type="checkbox" id="config-urgente" /></div>
+              <div class="titulo-secao" style="margin-top:18px">Sobre o que avisar</div>
+              <p class="texto-suave" style="margin:0 0 6px">Tudo aparece nas abas Feed e Prazos. Aqui você escolhe o que também chega por push e e-mail.</p>
+              <div class="toggle-linha"><span>Sisu, transferência e seleções pra estudar <small class="texto-suave">(sempre ligado)</small></span><input type="checkbox" checked disabled /></div>
+              <div class="toggle-linha"><span>Bolsas e auxílios estudantis</span><input type="checkbox" data-grupo-aviso="assistencia" /></div>
+              <div class="toggle-linha"><span>Calendário acadêmico</span><input type="checkbox" data-grupo-aviso="calendario" /></div>
+              <div class="toggle-linha"><span>Pós-graduação</span><input type="checkbox" data-grupo-aviso="pos" /></div>
+              <div class="toggle-linha"><span>Concursos, professor substituto e estágio</span><input type="checkbox" data-grupo-aviso="trabalho" /></div>
+              <div class="toggle-linha"><span>Pesquisa, extensão, chamadas públicas e cultura</span><input type="checkbox" data-grupo-aviso="pesquisa" /></div>
               <button class="botao" type="submit">Salvar preferências</button>
               <div id="msg-config-salvo" class="aviso" hidden></div>
             </form>
@@ -911,6 +933,6 @@
   </div>
 </section>
 
-<script type="module" src="app.js?v=20260921b"></script>
+<script type="module" src="app.js?v=20260922b"></script>
 </body>
 </html>
