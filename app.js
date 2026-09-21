@@ -29,8 +29,8 @@ import {
   getToken,
   isSupported,
 } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-messaging.js";
-import { lerPdfDoEnem } from "./leitor-pdf.js?v=20260922b";
-import * as DICAS from "./dicas-enem.js?v=20260922b";
+import { lerPdfDoEnem } from "./leitor-pdf.js?v=20260922c";
+import * as DICAS from "./dicas-enem.js?v=20260922c";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDuG755MrvWbhSRPaPtSuVM_K8QNNkopHU",
@@ -302,7 +302,7 @@ function entrarNoApp() {
     perfilAtual = snap.data() || {};
     atualizarIdentidade();
   });
-  escutar("prazos", query(collection(db, "prazos"), where("dataLimite", ">=", new Date(Date.now() - 200 * 24 * 60 * 60 * 1000)), orderBy("dataLimite", "asc"), limit(2000)), (snap) => {
+  escutar("prazos", query(collection(db, "prazos"), orderBy("data", "desc"), limit(2000)), (snap) => {
     todosOsPrazos = snap.docs.map((d) => {
       const dados = d.data();
       const quando = dados.data?.toDate ? dados.data.toDate() : null;
@@ -737,7 +737,7 @@ function prazosValidos() {
 //   Etapa:   de qual página veio (Chamada Regular, 10ª Convocação…).
 //   Situação, instituição, busca e "só o que falta providenciar".
 // ---------------------------------------------------------------------------
-const filtrosPrazo = { periodo: "proximos", de: "", ate: "", etapa: "", busca: "", fonte: "", categoria: "", pendentes: false };
+const filtrosPrazo = { periodo: "proximos", de: "", ate: "", etapa: "", busca: "", inst: "", fonte: "", categoria: "", pendentes: false };
 
 // Ordem natural das etapas: cronograma, chamada regular, lista de espera,
 // 1ª…Nª convocação, resultado, remanejamentos; o resto depois, em ordem alfabética.
@@ -763,17 +763,16 @@ function origemPadrao(p) {
 
 function preencherOpcoesFiltro() {
   const validos = prazosValidos();
-  // Origem: UFC (tudo), IFCE (tudo) e cada site/tipo de seleção.
-  const porInst = { UFC: new Set(), IFCE: new Set() };
-  validos.forEach((p) => (porInst[p.fonte === "IFCE" ? "IFCE" : "UFC"]).add(origemPadrao(p)));
+  // Origem (site ou tipo de seleção), só da instituição escolhida.
+  const daInst = validos.filter((p) => !filtrosPrazo.inst || (p.fonte === "IFCE" ? "IFCE" : "UFC") === filtrosPrazo.inst);
+  const origens = [...new Set(daInst.map(origemPadrao))].sort((a, b) => a.localeCompare(b, "pt-BR"));
   const selFonte = $("filtro-fonte");
-  const grupo = (inst) => porInst[inst].size
-    ? `<optgroup label="${inst}"><option value="inst:${inst}">${inst} — tudo</option>${[...porInst[inst]].sort((a, b) => a.localeCompare(b, "pt-BR"))
-        .map((o) => `<option value="origem:${escapeHtml(o)}">${escapeHtml(o.replace(/^IFCE · /, ""))}</option>`).join("")}</optgroup>`
-    : "";
-  selFonte.innerHTML = '<option value="">UFC e IFCE — tudo</option>' + grupo("UFC") + grupo("IFCE");
-  selFonte.value = [...selFonte.options].some((o) => o.value === filtrosPrazo.fonte) ? filtrosPrazo.fonte : "";
-  const etapas = [...new Set(validos.map((p) => infoPrazo(p).titulo))].sort((a, b) => {
+  selFonte.innerHTML = '<option value="">Todas as origens</option>' +
+    origens.map((o) => `<option value="${escapeHtml(o)}">${escapeHtml(o.replace(/^IFCE · /, "IFCE: "))}</option>`).join("");
+  if (!origens.includes(filtrosPrazo.fonte)) filtrosPrazo.fonte = "";
+  selFonte.value = filtrosPrazo.fonte;
+  const daOrigem = daInst.filter((p) => !filtrosPrazo.fonte || origemPadrao(p) === filtrosPrazo.fonte);
+  const etapas = [...new Set(daOrigem.map((p) => infoPrazo(p).titulo))].sort((a, b) => {
     const [pa, na] = pesoEtapa(a), [pb, nb] = pesoEtapa(b);
     return pa - pb || na - nb || a.localeCompare(b, "pt-BR");
   });
@@ -819,11 +818,8 @@ function passaNosFiltros(p, janela) {
     if (ate !== null && ini > ate) return false;
   }
   if (filtrosPrazo.etapa && infoPrazo(p).titulo !== filtrosPrazo.etapa) return false;
-  if (filtrosPrazo.fonte) {
-    const [tipo, valor] = filtrosPrazo.fonte.split(":");
-    if (tipo === "inst" && p.fonte !== valor) return false;
-    if (tipo === "origem" && (p.origem || origemPadrao(p)) !== valor) return false;
-  }
+  if (filtrosPrazo.inst && (p.fonte === "IFCE" ? "IFCE" : "UFC") !== filtrosPrazo.inst) return false;
+  if (filtrosPrazo.fonte && origemPadrao(p) !== filtrosPrazo.fonte) return false;
   if (filtrosPrazo.categoria && (p.categoria || "Outros") !== filtrosPrazo.categoria) return false;
   if (filtrosPrazo.pendentes && prazosConfirmados.has(p.id)) return false;
   if (filtrosPrazo.busca) {
@@ -854,7 +850,7 @@ function renderizarPrazos() {
   const itens = [...abertos, ...passados];
 
   const padrao = filtrosPrazo.periodo === "proximos";
-  const algumFiltro = !padrao || filtrosPrazo.etapa || filtrosPrazo.busca || filtrosPrazo.fonte || filtrosPrazo.categoria || filtrosPrazo.pendentes;
+  const algumFiltro = !padrao || filtrosPrazo.etapa || filtrosPrazo.busca || filtrosPrazo.inst || filtrosPrazo.fonte || filtrosPrazo.categoria || filtrosPrazo.pendentes;
   $("prazos-contagem").textContent = `${itens.length} prazo${itens.length === 1 ? "" : "s"}${algumFiltro ? " com esses filtros" : " daqui pra frente"}`;
   $("filtro-limpar").classList.toggle("oculto", !algumFiltro);
 
@@ -947,12 +943,13 @@ $("filtro-de").addEventListener("change", (e) => { filtrosPrazo.de = e.target.va
 $("filtro-ate").addEventListener("change", (e) => { filtrosPrazo.ate = e.target.value; renderizarPrazos(); });
 $("filtro-etapa").addEventListener("change", (e) => { filtrosPrazo.etapa = e.target.value; renderizarPrazos(); });
 $("filtro-busca").addEventListener("input", (e) => { filtrosPrazo.busca = e.target.value.trim(); renderizarPrazos(); });
-$("filtro-fonte").addEventListener("change", (e) => { filtrosPrazo.fonte = e.target.value; renderizarPrazos(); });
+$("filtro-instituicao").addEventListener("change", (e) => { filtrosPrazo.inst = e.target.value; filtrosPrazo.fonte = ""; filtrosPrazo.etapa = ""; renderizarPrazos(); });
+$("filtro-fonte").addEventListener("change", (e) => { filtrosPrazo.fonte = e.target.value; filtrosPrazo.etapa = ""; renderizarPrazos(); });
 $("filtro-categoria").addEventListener("change", (e) => { filtrosPrazo.categoria = e.target.value; renderizarPrazos(); });
 $("filtro-pendentes").addEventListener("change", (e) => { filtrosPrazo.pendentes = e.target.checked; renderizarPrazos(); });
 $("filtro-limpar").addEventListener("click", () => {
-  Object.assign(filtrosPrazo, { periodo: "proximos", de: "", ate: "", etapa: "", busca: "", fonte: "", categoria: "", pendentes: false });
-  ["filtro-busca", "filtro-fonte", "filtro-categoria", "filtro-etapa", "filtro-de", "filtro-ate"].forEach((id) => ($(id).value = ""));
+  Object.assign(filtrosPrazo, { periodo: "proximos", de: "", ate: "", etapa: "", busca: "", inst: "", fonte: "", categoria: "", pendentes: false });
+  ["filtro-busca", "filtro-instituicao", "filtro-fonte", "filtro-categoria", "filtro-etapa", "filtro-de", "filtro-ate"].forEach((id) => ($(id).value = ""));
   $("filtro-periodo").value = "proximos";
   $("filtro-pendentes").checked = false;
   renderizarPrazos();
