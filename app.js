@@ -814,7 +814,7 @@ async function importarPdfs(arquivos) {
   for (const arquivo of pdfs) {
     statusPdf("lendo", `Lendo ${arquivo.name}…`);
     try {
-      const lido = await lerPdfDoEnem(arquivo);
+      const lido = await lerPdfDoEnem(arquivo, (aviso) => statusPdf("lendo", `${arquivo.name}: ${aviso}`));
       if (lido.camposEncontrados.length === 0) {
         semTexto.push(arquivo.name);
         continue;
