@@ -1,4 +1,4 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-app.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import {
   getAuth,
   createUserWithEmailAndPassword,
@@ -8,7 +8,7 @@ import {
   onAuthStateChanged,
   signOut,
   reload,
-} from "https://www.gstatic.com/firebasejs/10.13.2/firebase-auth.js";
+} from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import {
   getFirestore,
   doc,
@@ -23,14 +23,14 @@ import {
   where,
   onSnapshot,
   serverTimestamp,
-} from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
+} from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import {
   getMessaging,
   getToken,
   isSupported,
-} from "https://www.gstatic.com/firebasejs/10.13.2/firebase-messaging.js";
-import { lerPdfDoEnem } from "./leitor-pdf.js?v=20260922d";
-import * as DICAS from "./dicas-enem.js?v=20260922d";
+} from "https://www.gstatic.com/firebasejs/12.19.0/firebase-messaging.js";
+import { lerPdfDoEnem } from "./leitor-pdf.js?v=20260922f";
+import * as DICAS from "./dicas-enem.js?v=20260922f";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDuG755MrvWbhSRPaPtSuVM_K8QNNkopHU",
@@ -81,8 +81,8 @@ const $ = (id) => document.getElementById(id);
 // Tudo via classe CSS, pra nunca ficarem duas telas visíveis ao mesmo tempo.
 // ---------------------------------------------------------------------------
 const TELAS = ["carregando", "login", "cadastro", "verificar-email", "app"];
-const PAGINAS = ["feed", "prazos", "inscricao", "config", "perfil"];
-const TITULOS = { feed: "Feed", prazos: "Prazos", inscricao: "Inscrição", config: "Ajustes", perfil: "Perfil" };
+const PAGINAS = ["feed", "prazos", "inscricao", "ia", "config", "perfil"];
+const TITULOS = { feed: "Feed", prazos: "Prazos", inscricao: "Inscrição", ia: "IA de estudos", config: "Ajustes", perfil: "Perfil" };
 
 function mostrarTela(nome) {
   TELAS.forEach((t) => {
@@ -104,6 +104,20 @@ function mostrarPagina(nome) {
   window.scrollTo(0, 0);
   if (nome === "config") carregarConfig();
   if (nome === "inscricao") mostrarSubaba(subabaAtual || (todasInscricoes.length ? "acompanhamento" : "cadastro"));
+  if (nome === "ia") abrirIA();
+}
+
+// A aba IA fica num arquivo separado (ia.js), carregado só quando é aberta.
+let moduloIA = null;
+async function abrirIA() {
+  try {
+    moduloIA = moduloIA || (await import("./ia.js?v=20260922f"));
+    moduloIA.abrirAbaIA();
+  } catch (erro) {
+    console.error("Não carreguei a aba IA:", erro);
+    $("ia-config").classList.remove("oculto");
+    $("ia-config").insertAdjacentHTML("afterbegin", '<p class="status-pdf falha">Não consegui carregar a IA. Recarregue a página.</p>');
+  }
 }
 
 function showMsg(id, texto) {
@@ -277,6 +291,7 @@ const escutadores = {};
 let navegacaoConfigurada = false;
 
 function pararTodosOsEscutadores() {
+  if (moduloIA) moduloIA.sairDaIA();
   for (const chave of Object.keys(escutadores)) {
     if (escutadores[chave]) escutadores[chave]();
     escutadores[chave] = null;
@@ -334,7 +349,7 @@ function entrarNoApp() {
 
   if (!navegacaoConfigurada) {
     navegacaoConfigurada = true;
-    ["feed", "prazos", "inscricao", "config"].forEach((p) => {
+    ["feed", "prazos", "inscricao", "ia", "config"].forEach((p) => {
       $("nav-" + p).addEventListener("click", () => mostrarPagina(p));
     });
   }
@@ -1735,10 +1750,25 @@ function renderizarDesempenho() {
         ? `caiu ${fmtDelta(Math.round((atual.notas[k] - anterior.notas[k]) * 10) / 10).replace("−", "")} pontos desde ${anterior.ano}`
         : k === maisBaixa.chave ? "sua nota mais baixa" : "segunda nota mais baixa";
       return `
-        <article class="pd-cartao">
-          <h4>${escapeHtml(a.nome)} <span>${fmtProva(k, atual.notas[k])} · ${escapeHtml(motivo)}</span></h4>
+        <article class="pd-cartao pd-cartao-foco">
+          <h4>${escapeHtml(a.nome)} <span class="pd-tag pd-tag-foco">◎ foco</span> <span>${fmtProva(k, atual.notas[k])} · ${escapeHtml(motivo)}</span></h4>
           <p class="pd-sub">O que mais cai no Enem nessa área:</p>
           ${htmlConteudosDaArea(k)}
+        </article>`;
+    })
+    .join("");
+
+  // As outras áreas também ganham um quadro próprio (antes ficavam escondidas
+  // num "O que mais cai nas outras áreas").
+  const cartoesOutras = AREAS.filter((a) => a.chave !== "redacao" && !foco.has(a.chave))
+    .map((a) => {
+      const nota = typeof atual.notas?.[a.chave] === "number" ? atual.notas[a.chave] : null;
+      const destaque = nota !== null && maisAlta && a.chave === maisAlta.chave && !equilibrado ? " · sua nota mais alta" : "";
+      return `
+        <article class="pd-cartao">
+          <h4>${escapeHtml(a.nome)}${nota !== null ? ` <span>${fmtProva(a.chave, nota)}${destaque}</span>` : ""}</h4>
+          <p class="pd-sub">O que mais cai no Enem nessa área:</p>
+          ${htmlConteudosDaArea(a.chave)}
         </article>`;
     })
     .join("");
@@ -1785,15 +1815,9 @@ function renderizarDesempenho() {
         </div>
         ${linhasComp.length ? `<div class="pd-bloco"><h3>Redação por competência <small>0 a 200</small></h3>${htmlBarrasDesempenho(linhasComp, 200)}</div>` : ""}
       </div>
-      <h3 class="pd-titulo-foco">Onde focar</h3>
+      <h3 class="pd-titulo-foco">Onde focar e o que mais cai em cada área</h3>
       ${semFoco}
-      <div class="pd-cartoes">${cartoesFoco}${cartaoRedacao}</div>
-      <details class="pd-estrategia">
-        <summary>O que mais cai nas outras áreas</summary>
-        <div class="pd-cartoes">${AREAS.filter((a) => a.chave !== "redacao" && !foco.has(a.chave))
-          .map((a) => `<article class="pd-cartao"><h4>${escapeHtml(a.nome)}${typeof atual.notas?.[a.chave] === "number" ? ` <span>${fmtProva(a.chave, atual.notas[a.chave])}</span>` : ""}</h4>${htmlConteudosDaArea(a.chave)}</article>`)
-          .join("")}</div>
-      </details>
+      <div class="pd-cartoes">${cartoesFoco}${cartaoRedacao}${cartoesOutras}</div>
       ${estrategia}
       ${rodape}
     </section>`;
