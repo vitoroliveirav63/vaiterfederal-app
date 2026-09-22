@@ -29,7 +29,7 @@ const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "
 // ---------------------------------------------------------------------------
 const SISTEMA_DUVIDAS = `Você é um professor particular especialista no Enem (Exame Nacional do Ensino Médio) e responde sempre em português do Brasil, com linguagem clara, como quem explica para um estudante que quer entender de verdade.
 
-Quando o estudante mandar uma questão (em texto ou foto):
+Quando o estudante mandar uma questão (em texto, foto, PDF ou outro arquivo anexado):
 1. Diga a área, a disciplina e o conteúdo cobrado; se der, a competência/habilidade da Matriz de Referência do Enem.
 2. Resolva passo a passo, mostrando o raciocínio e as contas.
 3. Indique a alternativa correta e explique, em uma linha cada, por que as outras estão erradas.
@@ -39,6 +39,7 @@ Quando o estudante mandar uma questão (em texto ou foto):
 Quando for uma dúvida de conteúdo (sem questão), explique com um exemplo no estilo Enem.
 
 Regras:
+- Se vier um arquivo com várias questões e o estudante não disser qual, pergunte qual ele quer (ou resolva a primeira e ofereça as outras).
 - Se a foto estiver ilegível, cortada, ou faltar informação (texto-base, gráfico, alternativas), diga exatamente o que falta em vez de inventar.
 - Se não tiver certeza da resposta, diga isso com clareza e mostre o caminho mais provável.
 - Nunca invente gabarito oficial, ano de prova ou número da questão.
@@ -74,7 +75,7 @@ C5 — Elaborar proposta de intervenção para o problema abordado, respeitando 
 ZERA A REDAÇÃO INTEIRA: fuga total ao tema; não atender ao tipo dissertativo-argumentativo; até 7 linhas (texto insuficiente — no digitado, menos de uns 70 palavras); cópia integral dos textos motivadores; texto predominantemente em outra língua; identificação do candidato; impropérios, desenhos ou partes desconectadas propositalmente.
 
 COMO CORRIGIR:
-- Se vier FOTO de redação manuscrita, primeiro transcreva fielmente no campo "transcricao" (mantenha os erros do autor; use [ilegível] onde não der pra ler) e corrija a transcrição. Se a letra estiver ilegível demais, diga isso no resumo e não chute notas altas.
+- Se a redação vier em ANEXO (foto, PDF escaneado ou outro arquivo), primeiro transcreva fielmente no campo "transcricao" (mantenha os erros do autor; use [ilegível] onde não der pra ler) e corrija a transcrição. Se a letra estiver ilegível demais, diga isso no resumo e não chute notas altas.
 - Compare com o TEMA informado. Se o tema não foi informado, deduza pelo texto e diga isso em "tema_identificado".
 - Em cada competência: escolha o nível pela grade, justifique citando o texto, e liste problemas com o TRECHO EXATO copiado da redação, o problema e uma sugestão de reescrita concreta.
 - Na C1, aponte os desvios reais (concordância, regência, crase, pontuação, ortografia, acentuação, registro informal), sem inventar.
@@ -140,8 +141,192 @@ function mensagemDeErro(e) {
 }
 
 // ---------------------------------------------------------------------------
-// Imagens: reduz pra no máximo 1600px e JPEG, pra caber e ir rápido.
+// Anexos: qualquer arquivo. Cada um vira uma "parte" que o Gemini entende:
+//  - imagem → reduzida pra 1600px em JPEG;
+//  - PDF, áudio, vídeo → vão como estão (o Gemini lê direto);
+//  - Word/ODT/PowerPoint/Excel → o texto é extraído aqui no navegador;
+//  - texto, CSV, JSON, código… → vão como texto;
+//  - o resto: se der pra ler como texto, vai como texto; senão, avisa.
+// O pedido todo pro Gemini tem limite de ~20 MB, então o total é limitado.
 // ---------------------------------------------------------------------------
+const LIMITE_TOTAL = 14 * 1024 * 1024;   // bytes "crus" somados (base64 aumenta ~33%)
+const LIMITE_TEXTO = 120000;             // caracteres por arquivo de texto
+const MAX_ANEXOS = 5;
+const DIRETO = /^(application\/pdf|audio\/|video\/)/;
+const EXT_TEXTO = /\.(txt|md|csv|tsv|json|xml|html?|css|js|ts|py|java|c|cpp|h|rtf|tex|log|ya?ml|ini|srt)$/i;
+
+function tamanhoLegivel(b) {
+  return b < 1024 ? `${b} B` : b < 1048576 ? `${Math.round(b / 1024)} KB` : `${(b / 1048576).toFixed(1)} MB`;
+}
+
+function paraBase64(buffer) {
+  const bytes = new Uint8Array(buffer);
+  let bin = "";
+  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+  return btoa(bin);
+}
+
+// Leitor de .zip mínimo (docx/xlsx/pptx/odt são zips), sem biblioteca.
+async function lerZip(buffer) {
+  const v = new DataView(buffer);
+  let fim = -1;
+  for (let i = buffer.byteLength - 22; i >= Math.max(0, buffer.byteLength - 70000); i--) {
+    if (v.getUint32(i, true) === 0x06054b50) { fim = i; break; }
+  }
+  if (fim < 0) throw new Error("zip-invalido");
+  const total = v.getUint16(fim + 10, true);
+  let pos = v.getUint32(fim + 16, true);
+  const dec = new TextDecoder();
+  const entradas = {};
+  for (let n = 0; n < total; n++) {
+    if (v.getUint32(pos, true) !== 0x02014b50) break;
+    const metodo = v.getUint16(pos + 10, true);
+    const tamComp = v.getUint32(pos + 20, true);
+    const lenNome = v.getUint16(pos + 28, true), lenExtra = v.getUint16(pos + 30, true), lenCom = v.getUint16(pos + 32, true);
+    const local = v.getUint32(pos + 42, true);
+    const nome = dec.decode(new Uint8Array(buffer, pos + 46, lenNome));
+    entradas[nome] = { metodo, tamComp, local };
+    pos += 46 + lenNome + lenExtra + lenCom;
+  }
+  return {
+    nomes: Object.keys(entradas),
+    async texto(nome) {
+      const e = entradas[nome];
+      if (!e) return "";
+      const ini = e.local + 30 + v.getUint16(e.local + 26, true) + v.getUint16(e.local + 28, true);
+      const dados = new Uint8Array(buffer, ini, e.tamComp);
+      if (e.metodo === 0) return dec.decode(dados);
+      const fluxo = new Blob([dados]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
+      return new Response(fluxo).text();
+    },
+  };
+}
+
+function xmlParaTexto(xml, fimParagrafo) {
+  return xml
+    .replace(new RegExp(`</${fimParagrafo}>`, "g"), "\n")
+    .replace(/<w:tab\/>|<text:tab\/>/g, "\t")
+    .replace(/<w:br\/>|<text:line-break\/>/g, "\n")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&#x([0-9a-f]+);/gi, (_, h) => String.fromCodePoint(parseInt(h, 16)))
+    .replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(Number(n)))
+    .replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&amp;/g, "&")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+async function textoDeOffice(buffer, ext) {
+  const zip = await lerZip(buffer);
+  if (ext === "docx") return xmlParaTexto(await zip.texto("word/document.xml"), "w:p");
+  if (/^od[tps]$/.test(ext)) return xmlParaTexto(await zip.texto("content.xml"), "text:p");
+  if (ext === "pptx") {
+    const slides = zip.nomes.filter((n) => /^ppt\/slides\/slide\d+\.xml$/.test(n))
+      .sort((a, b) => Number(a.match(/\d+/)[0]) - Number(b.match(/\d+/)[0]));
+    const partes = [];
+    for (const [i, n] of slides.entries()) partes.push(`--- Slide ${i + 1} ---\n${xmlParaTexto(await zip.texto(n), "a:p")}`);
+    return partes.join("\n\n");
+  }
+  if (ext === "xlsx") {
+    const compart = [...(await zip.texto("xl/sharedStrings.xml")).matchAll(/<si>([\s\S]*?)<\/si>/g)].map((m) => xmlParaTexto(m[1], "x"));
+    const planilhas = zip.nomes.filter((n) => /^xl\/worksheets\/sheet\d+\.xml$/.test(n));
+    const saida = [];
+    for (const [i, n] of planilhas.entries()) {
+      const xml = await zip.texto(n);
+      const linhas = [...xml.matchAll(/<row[^>]*>([\s\S]*?)<\/row>/g)].map((r) =>
+        [...r[1].matchAll(/<c([^>]*?)(?:\/>|>([\s\S]*?)<\/c>)/g)].map((c) => {
+          const tipo = (c[1].match(/t="(\w+)"/) || [])[1];
+          const val = ((c[2] || "").match(/<v>([\s\S]*?)<\/v>/) || [])[1];
+          if (tipo === "s") return compart[Number(val)] ?? "";
+          if (tipo === "inlineStr") return xmlParaTexto(c[2] || "", "x");
+          return val ?? "";
+        }).join("\t"));
+      saida.push(`--- Planilha ${i + 1} ---\n${linhas.join("\n")}`);
+    }
+    return saida.join("\n\n");
+  }
+  throw new Error("office-desconhecido");
+}
+
+// Texto "de verdade"? (evita mandar lixo binário como se fosse texto)
+function pareceTexto(buffer) {
+  const amostra = new Uint8Array(buffer, 0, Math.min(buffer.byteLength, 4000));
+  let estranhos = 0;
+  for (const b of amostra) if (b === 0 || (b < 9) || (b > 13 && b < 32)) estranhos++;
+  return amostra.length > 0 && estranhos / amostra.length < 0.02;
+}
+
+async function arquivoParaAnexo(arquivo) {
+  const nome = arquivo.name || "arquivo";
+  const ext = (nome.match(/\.([a-z0-9]+)$/i) || [])[1]?.toLowerCase() || "";
+  const tipo = arquivo.type || "";
+  const base = { nome, tamanho: arquivo.size, mime: arquivo.type || "" };
+
+  if (tipo.startsWith("image/") && !/heic|heif/i.test(tipo)) {
+    try {
+      const img = await imagemParaParte(arquivo);
+      return { ...base, tipo: "imagem", parte: { inlineData: img.inlineData }, previa: img.previa, bytes: img.inlineData.data.length * 0.75 };
+    } catch { /* formato que o navegador não abre: tenta mandar direto abaixo */ }
+  }
+  const buffer = await arquivo.arrayBuffer();
+
+  if (DIRETO.test(tipo) || /^(heic|heif)$/.test(ext) || /heic|heif/i.test(tipo)) {
+    const mime = tipo || (ext === "heic" ? "image/heic" : "image/heif");
+    return { ...base, tipo: mime.startsWith("image/") ? "imagem" : "arquivo", parte: { inlineData: { mimeType: mime, data: paraBase64(buffer) } }, bytes: buffer.byteLength };
+  }
+  if (/^(docx|xlsx|pptx|odt|ods|odp)$/.test(ext)) {
+    const texto = await textoDeOffice(buffer, ext);
+    if (!texto.trim()) throw new Error(`O arquivo "${nome}" não tem texto que eu consiga ler.`);
+    return { ...base, tipo: "texto", texto: texto.slice(0, LIMITE_TEXTO), parte: { text: `ARQUIVO "${nome}":\n${texto.slice(0, LIMITE_TEXTO)}` }, bytes: 0 };
+  }
+  if (tipo.startsWith("text/") || EXT_TEXTO.test(nome) || /json|xml|csv|javascript/.test(tipo) || pareceTexto(buffer)) {
+    let texto = new TextDecoder("utf-8").decode(buffer);
+    if (/\uFFFD/.test(texto.slice(0, 2000))) texto = new TextDecoder("windows-1252").decode(buffer);
+    if (ext === "rtf") texto = texto.replace(/\\par[d]?/g, "\n").replace(/\{\\\*[^}]*\}|\\[a-z]+-?\d* ?|[{}]/g, "");
+    return { ...base, tipo: "texto", texto: texto.slice(0, LIMITE_TEXTO), parte: { text: `ARQUIVO "${nome}":\n${texto.slice(0, LIMITE_TEXTO)}` }, bytes: 0 };
+  }
+  if (ext === "doc" || ext === "ppt" || ext === "xls") {
+    throw new Error(`"${nome}" está num formato antigo do Office (.${ext}). Salve como .${ext}x ou PDF e anexe de novo.`);
+  }
+  throw new Error(`Não consigo mandar "${nome}" pra IA. Tente em PDF, imagem, Word ou texto.`);
+}
+
+// Adiciona arquivos numa lista de anexos, respeitando a quantidade e o tamanho.
+async function anexarArquivos(arquivos, lista, aoErrar) {
+  const erros = [];
+  for (const f of arquivos) {
+    if (lista.length >= MAX_ANEXOS) { erros.push(`Máximo de ${MAX_ANEXOS} anexos por vez.`); break; }
+    try {
+      const anexo = await arquivoParaAnexo(f);
+      const usado = lista.reduce((s, a) => s + (a.bytes || 0), 0);
+      if (usado + (anexo.bytes || 0) > LIMITE_TOTAL) { erros.push(`"${f.name}" passa do limite de ${tamanhoLegivel(LIMITE_TOTAL)} somando os anexos.`); continue; }
+      lista.push(anexo);
+    } catch (e) {
+      console.warn("Anexo:", e);
+      erros.push(/zip-invalido|office/.test(e.message) ? `Não consegui abrir "${f.name}".` : e.message);
+    }
+  }
+  aoErrar(erros.join(" "));
+}
+
+function iconeAnexo(a) {
+  const n = a.nome.toLowerCase();
+  if (a.tipo === "imagem") return "🖼️";
+  if (n.endsWith(".pdf")) return "📕";
+  if (/\.(docx|odt|txt|md|rtf)$/.test(n)) return "📄";
+  if (/\.(xlsx|ods|csv|tsv)$/.test(n)) return "📊";
+  if (/\.(pptx|odp)$/.test(n)) return "📽️";
+  if (/^audio/.test(a.mime || "") || /\.(mp3|wav|m4a|ogg|opus)$/.test(n)) return "🎧";
+  if (/^video/.test(a.mime || "")) return "🎬";
+  return "📎";
+}
+
+function htmlAnexo(a, i, grande) {
+  const tirar = i === undefined ? "" : `<button type="button" data-tirar="${i}" aria-label="Tirar ${esc(a.nome)}">×</button>`;
+  if (a.previa) return `<span class="ia-miniatura${grande ? " grande" : ""}"><img src="${a.previa}" alt="${esc(a.nome)}" />${tirar}</span>`;
+  return `<span class="ia-miniatura"><span class="ia-arquivo" title="${esc(a.nome)}">${iconeAnexo(a)} <span>${esc(a.nome)}</span> <small>${tamanhoLegivel(a.tamanho)}</small></span>${tirar}</span>`;
+}
+
+// Imagens: reduz pra no máximo 1600px e JPEG, pra caber e ir rápido.
 async function imagemParaParte(arquivo) {
   const bitmap = await createImageBitmap(arquivo);
   const escala = Math.min(1, 1600 / Math.max(bitmap.width, bitmap.height));
@@ -230,21 +415,22 @@ let historicoDuvidas = [];
 function renderizarConversa() {
   const alvo = $("ia-conversa");
   if (!conversa.length) {
-    alvo.innerHTML = `<div class="ia-vazio">Mande uma questão (texto ou foto/print) ou uma dúvida de conteúdo. Dá pra continuar perguntando em cima da resposta.</div>`;
+    alvo.innerHTML = `<div class="ia-vazio">Mande uma questão (texto ou arquivo anexado: foto, print, PDF, Word…) ou uma dúvida de conteúdo. Dá pra continuar perguntando em cima da resposta.</div>`;
     return;
   }
   alvo.innerHTML = conversa.map((m) => `
     <div class="ia-msg ia-msg-${m.papel}">
       <div class="ia-msg-autor">${m.papel === "voce" ? "Você" : "IA"}</div>
       ${(m.previas || []).map((p) => `<img class="ia-previa" src="${p}" alt="Imagem enviada" />`).join("")}
+      ${(m.arquivos || []).length ? `<div>${m.arquivos.map((a) => htmlAnexo(a)).join("")}</div>` : ""}
       <div class="ia-msg-texto">${m.papel === "ia" ? (m.carregando ? '<span class="ia-digitando">Pensando…</span>' : md(m.texto)) : `<p>${esc(m.texto).replace(/\n/g, "<br />")}</p>`}</div>
     </div>`).join("");
   alvo.scrollTop = alvo.scrollHeight;
 }
 
-function renderizarPreviasDuvida() {
-  $("ia-duvida-previas").innerHTML = imagensDuvida.map((img, i) => `
-    <span class="ia-miniatura"><img src="${img.previa}" alt="" /><button type="button" data-tirar="${i}" aria-label="Tirar imagem">×</button></span>`).join("");
+function renderizarPreviasDuvida(erro = "") {
+  $("ia-duvida-previas").innerHTML = imagensDuvida.map((a, i) => htmlAnexo(a, i)).join("") +
+    (erro ? `<div class="status-pdf falha" style="flex-basis:100%">${esc(erro)}</div>` : "");
   $("ia-duvida-previas").querySelectorAll("[data-tirar]").forEach((b) => b.addEventListener("click", () => {
     imagensDuvida.splice(Number(b.dataset.tirar), 1);
     renderizarPreviasDuvida();
@@ -261,7 +447,12 @@ async function enviarDuvida(e) {
   imagensDuvida = [];
   renderizarPreviasDuvida();
   $("ia-duvida-texto").value = "";
-  conversa.push({ papel: "voce", texto: texto || "(questão na imagem)", previas: imagens.map((i) => i.previa) });
+  conversa.push({
+    papel: "voce",
+    texto: texto || "(questão no anexo)",
+    previas: imagens.filter((i) => i.previa).map((i) => i.previa),
+    arquivos: imagens.filter((i) => !i.previa).map(({ nome, tamanho, tipo, mime }) => ({ nome, tamanho, tipo, mime })),
+  });
   const resposta = { papel: "ia", texto: "", carregando: true };
   conversa.push(resposta);
   renderizarConversa();
@@ -270,8 +461,8 @@ async function enviarDuvida(e) {
     await prepararIA();
     const partes = [];
     if (texto) partes.push({ text: texto });
-    else partes.push({ text: "Resolva e explique esta questão do Enem." });
-    imagens.forEach((i) => partes.push({ inlineData: i.inlineData }));
+    else partes.push({ text: "Resolva e explique a questão do Enem que está no anexo." });
+    imagens.forEach((i) => partes.push(i.parte));
 
     const resultado = await comModelos(async (nome) => {
       if (!chat || chat.modelo !== nome) {
@@ -306,7 +497,7 @@ async function salvarDuvida(pergunta, qtdImagens, resposta) {
   if (!user || !resposta) return;
   try {
     await addDoc(collection(getFirestore(), "usuarios", user.uid, "duvidas"), {
-      pergunta: (pergunta || "(questão enviada por imagem)").slice(0, 3000),
+      pergunta: (pergunta || "(questão enviada em anexo)").slice(0, 3000),
       imagens: qtdImagens,
       resposta: resposta.slice(0, 20000),
       criadoEm: serverTimestamp(),
@@ -325,7 +516,7 @@ function renderizarHistoricoDuvidas() {
   }
   alvo.innerHTML = historicoDuvidas.map((d) => `
     <details class="ia-item-historico">
-      <summary><span>${esc(d.pergunta.slice(0, 90))}${d.pergunta.length > 90 ? "…" : ""}${d.imagens ? " 📷" : ""}</span>
+      <summary><span>${esc(d.pergunta.slice(0, 90))}${d.pergunta.length > 90 ? "…" : ""}${d.imagens ? " 📎" : ""}</span>
         <small>${d.criadoEm?.toDate ? d.criadoEm.toDate().toLocaleDateString("pt-BR") : ""}</small></summary>
       <div class="ia-msg-texto">${md(d.resposta)}</div>
       <button type="button" class="link-lateral" data-apagar-duvida="${d.id}">Apagar</button>
@@ -412,9 +603,9 @@ function atualizarModoRedacao() {
   $("ia-redacao-bloco-foto").classList.toggle("oculto", !foto);
 }
 
-function renderizarPreviasRedacao() {
-  $("ia-redacao-previas").innerHTML = imagensRedacao.map((img, i) => `
-    <span class="ia-miniatura grande"><img src="${img.previa}" alt="Página ${i + 1}" /><button type="button" data-tirar="${i}" aria-label="Tirar foto">×</button></span>`).join("");
+function renderizarPreviasRedacao(erro = "") {
+  $("ia-redacao-previas").innerHTML = imagensRedacao.map((a, i) => htmlAnexo(a, i, true)).join("") +
+    (erro ? `<div class="status-pdf falha" style="flex-basis:100%">${esc(erro)}</div>` : "");
   $("ia-redacao-previas").querySelectorAll("[data-tirar]").forEach((b) => b.addEventListener("click", () => {
     imagensRedacao.splice(Number(b.dataset.tirar), 1);
     renderizarPreviasRedacao();
@@ -434,22 +625,27 @@ async function corrigirRedacao(e) {
   }
   if (foto && !imagensRedacao.length) {
     status.className = "status-pdf falha";
-    status.textContent = "Adicione a foto da redação (pode ser mais de uma, se estiver em duas páginas).";
+    status.textContent = "Anexe o arquivo da redação (foto, PDF, Word… pode ser mais de um, se estiver em duas páginas).";
     return;
   }
   const botao = $("ia-redacao-corrigir");
   botao.disabled = true;
   status.className = "status-pdf lendo";
-  status.textContent = foto ? "Lendo a letra e corrigindo… pode levar até 1 minuto." : "Corrigindo pela grade do Inep… pode levar até 1 minuto.";
+  // Se todos os anexos já são texto (Word, .txt…), corrige como texto digitado.
+  const soTexto = foto && imagensRedacao.every((a) => a.tipo === "texto");
+  const textoAnexos = soTexto ? imagensRedacao.map((a) => a.texto).join("\n\n").trim() : "";
+  status.textContent = foto && !soTexto ? "Lendo o arquivo e corrigindo… pode levar até 1 minuto." : "Corrigindo pela grade do Inep… pode levar até 1 minuto.";
   $("ia-redacao-resultado").innerHTML = "";
 
   try {
     await prepararIA();
     const partes = [{
       text: `TEMA: ${tema || "(não informado — deduza pelo texto)"}\n\n` +
-        (foto ? "A redação está nas imagens a seguir, na ordem das páginas. Transcreva e corrija." : `REDAÇÃO:\n${texto}`),
+        (soTexto ? `REDAÇÃO (extraída do arquivo anexado):\n${textoAnexos}`
+          : foto ? "A redação está nos arquivos anexados a seguir, na ordem das páginas. Transcreva no campo \"transcricao\" e corrija. Se algum anexo não for a redação (ex.: proposta ou textos motivadores), use só como contexto."
+          : `REDAÇÃO:\n${texto}`),
     }];
-    if (foto) imagensRedacao.forEach((i) => partes.push({ inlineData: i.inlineData }));
+    if (foto && !soTexto) imagensRedacao.forEach((i) => partes.push(i.parte));
 
     const bruto = await comModelos(async (nome) => {
       const m = modelo(nome, SISTEMA_REDACAO, {
@@ -463,7 +659,7 @@ async function corrigirRedacao(e) {
     status.textContent = `Correção pronta: ${correcao.total} pontos. É uma estimativa de treino — a nota oficial é dada por dois corretores do Inep.`;
     $("ia-redacao-resultado").innerHTML = htmlCorrecao(correcao, tema);
     $("ia-redacao-resultado").scrollIntoView({ behavior: "smooth", block: "start" });
-    salvarRedacao(tema, foto ? correcao.transcricao || "" : texto, correcao, foto);
+    salvarRedacao(tema, soTexto ? textoAnexos : foto ? correcao.transcricao || "" : texto, correcao, foto && !soTexto);
   } catch (erro) {
     if (String(erro?.message) !== "sem-chave") console.error("IA (redação):", erro);
     status.className = "status-pdf falha";
@@ -512,7 +708,7 @@ function htmlCorrecao(c, tema) {
       ${proposta}
       ${(c.repertorio || []).length ? `<div class="ia-bloco"><p class="ia-rotulo">Repertório encontrado</p><ul>${c.repertorio.map((r) => `<li>${esc(r)}</li>`).join("")}</ul></div>` : ""}
       ${(c.proximos_passos || []).length ? `<div class="ia-bloco"><p class="ia-rotulo">Próximos passos pra subir a nota</p><ol>${c.proximos_passos.map((r) => `<li>${esc(r)}</li>`).join("")}</ol></div>` : ""}
-      ${c.transcricao ? `<details class="ia-comp"><summary>Transcrição que a IA leu da foto</summary><p style="white-space:pre-wrap">${esc(c.transcricao)}</p></details>` : ""}
+      ${c.transcricao ? `<details class="ia-comp"><summary>Transcrição que a IA leu do anexo</summary><p style="white-space:pre-wrap">${esc(c.transcricao)}</p></details>` : ""}
       <p class="pd-rodape">Nota estimada por IA com a grade oficial do Inep, pra treino. Confira os trechos apontados — a IA pode errar.</p>
     </section>`;
 }
@@ -580,9 +776,9 @@ function montarEventos() {
     if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) $("ia-form-duvida").requestSubmit();
   });
   $("ia-duvida-foto").addEventListener("change", async (e) => {
-    for (const f of [...e.target.files].slice(0, 3 - imagensDuvida.length)) imagensDuvida.push(await imagemParaParte(f));
+    const arquivos = [...e.target.files];
     e.target.value = "";
-    renderizarPreviasDuvida();
+    await anexarArquivos(arquivos, imagensDuvida, (erro) => renderizarPreviasDuvida(erro));
   });
   $("ia-nova-conversa").addEventListener("click", () => {
     conversa = [];
@@ -593,9 +789,9 @@ function montarEventos() {
   document.querySelectorAll('input[name="ia-modo"]').forEach((r) => r.addEventListener("change", atualizarModoRedacao));
   $("ia-redacao-texto").addEventListener("input", contarTexto);
   $("ia-redacao-foto").addEventListener("change", async (e) => {
-    for (const f of [...e.target.files].slice(0, 3 - imagensRedacao.length)) imagensRedacao.push(await imagemParaParte(f));
+    const arquivos = [...e.target.files];
     e.target.value = "";
-    renderizarPreviasRedacao();
+    await anexarArquivos(arquivos, imagensRedacao, (erro) => renderizarPreviasRedacao(erro));
   });
   $("ia-form-redacao").addEventListener("submit", corrigirRedacao);
 
