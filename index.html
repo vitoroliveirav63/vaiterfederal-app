@@ -497,9 +497,11 @@
   .pd-tag { font-size: 0.7rem; font-weight: 600; padding: 2px 7px; border-radius: 999px; white-space: nowrap; }
   .pd-tag-foco { background: var(--novo-fundo); color: var(--novo-tinta); }
   .pd-tag-forte { background: var(--ok-fundo); color: var(--ok-tinta); }
-  .pd-cartoes { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
+  .pd-cartoes { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; align-items: start; }
   .pd-cartao { border: 1px solid var(--borda); border-radius: 12px; padding: 12px 14px; background: var(--cartao); }
   .pd-cartao h4 { margin: 0 0 4px; font-size: 0.95rem; }
+  .pd-cartao-foco { border-color: #F2C98E; background: #FFFBF4; }
+  .pd-cartao h4 .pd-tag { display: inline-block; margin: 0 0 0 4px; vertical-align: 2px; font-size: 0.68rem; }
   .pd-cartao h4 span { display: block; font-weight: 400; font-size: 0.78rem; color: var(--tinta-2); margin-top: 2px; }
   .pd-grupo { margin-top: 10px; }
   .pd-grupo-topo { font-size: 0.82rem; display: flex; justify-content: space-between; }
@@ -524,6 +526,58 @@
     .pd-linha { grid-template-columns: 112px 1fr 42px 76px; }
     .pd-media { text-align: left; }
   }
+
+
+  /* Aba IA */
+  .ia-config { border-color: #F2C98E; background: #FFFBF4; margin-bottom: 14px; }
+  .ia-config h3 { margin: 0 0 6px; font-size: 1rem; }
+  .ia-cabecalho-conversa { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin: 10px 0 8px; font-size: 0.84rem; }
+  .ia-conversa { background: var(--cartao); border: 1px solid var(--borda); border-radius: var(--raio); padding: 14px; min-height: 220px; max-height: 60vh; overflow-y: auto; }
+  .ia-vazio { color: var(--tinta-3); font-size: 0.9rem; text-align: center; padding: 40px 10px; }
+  .ia-msg { margin-bottom: 14px; }
+  .ia-msg-autor { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--tinta-3); margin-bottom: 4px; }
+  .ia-msg-voce .ia-msg-texto { background: var(--azul-suave); border-radius: 12px; padding: 8px 12px; display: inline-block; max-width: 100%; }
+  .ia-msg-texto { font-size: 0.92rem; line-height: 1.55; overflow-wrap: anywhere; }
+  .ia-msg-texto h4 { margin: 12px 0 4px; font-size: 0.95rem; color: var(--marinho); }
+  .ia-msg-texto p { margin: 0 0 8px; }
+  .ia-msg-texto ul, .ia-msg-texto ol { margin: 0 0 8px; padding-left: 20px; }
+  .ia-msg-texto code { background: var(--trilho); padding: 1px 5px; border-radius: 4px; }
+  .ia-digitando { color: var(--tinta-3); font-style: italic; }
+  .ia-previa { max-width: 220px; max-height: 220px; border-radius: 8px; border: 1px solid var(--borda); display: block; margin: 4px 0; }
+  .ia-form-duvida { margin-top: 10px; background: var(--cartao); border: 1px solid var(--borda); border-radius: var(--raio); padding: 10px; }
+  .ia-form-duvida textarea, #ia-redacao-texto { width: 100%; resize: vertical; font: inherit; font-size: 0.92rem; border: 1px solid var(--borda); border-radius: 10px; padding: 10px 12px; box-sizing: border-box; }
+  .ia-acoes-form { display: flex; justify-content: space-between; gap: 10px; margin-top: 8px; }
+  .ia-botao-foto { cursor: pointer; display: inline-flex; align-items: center; gap: 6px; margin: 0; text-transform: none; letter-spacing: 0; font-size: 0.88rem; }
+  .ia-previas { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 6px; }
+  .ia-miniatura { position: relative; }
+  .ia-miniatura img { width: 64px; height: 64px; object-fit: cover; border-radius: 8px; border: 1px solid var(--borda); }
+  .ia-miniatura.grande img { width: 120px; height: 160px; }
+  .ia-miniatura button { position: absolute; top: -6px; right: -6px; width: 22px; height: 22px; border-radius: 50%; border: none; background: var(--marinho); color: #fff; cursor: pointer; line-height: 1; }
+  .ia-historico { margin-top: 16px; font-size: 0.88rem; }
+  .ia-historico > summary { cursor: pointer; font-weight: 600; color: var(--marinho); margin-bottom: 8px; }
+  .ia-item-historico { background: var(--cartao); border: 1px solid var(--borda); border-radius: 10px; padding: 8px 12px; margin-bottom: 8px; }
+  .ia-item-historico summary { cursor: pointer; display: flex; justify-content: space-between; gap: 10px; }
+  .ia-linha-redacao { display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; }
+  .ia-linha-redacao b { font-size: 1.1rem; color: var(--marinho); }
+  .ia-tema-hist { font-size: 0.86rem; }
+  .ia-notas-hist { font-size: 0.75rem; }
+  .ia-acoes-hist { display: flex; gap: 10px; }
+  .ia-modos { display: flex; flex-wrap: wrap; gap: 14px; margin: 12px 0 10px; }
+  .ia-modos .ia-modo { display: flex; align-items: center; gap: 6px; margin: 0; text-transform: none; letter-spacing: 0; font-weight: 500; font-size: 0.9rem; color: var(--tinta); cursor: pointer; }
+  .ia-modos .ia-modo input { width: auto; accent-color: var(--marinho); }
+  .ia-contagem { font-size: 0.78rem; margin: 4px 0 10px; }
+  .ia-aviso { font-size: 0.76rem; margin-top: 8px; }
+  .ia-correcao { margin-top: 14px; }
+  .ia-comp { border-top: 1px solid var(--borda); padding: 10px 0; font-size: 0.9rem; }
+  .ia-comp summary { cursor: pointer; display: flex; justify-content: space-between; gap: 10px; }
+  .ia-nota-comp { font-weight: 700; color: var(--marinho); }
+  .ia-nivel { color: var(--tinta-2); font-style: italic; font-size: 0.84rem; }
+  .ia-rotulo { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--tinta-3); margin: 10px 0 4px; }
+  .ia-problema { border-left: 3px solid #F2C98E; padding: 4px 10px; margin: 6px 0; background: #FFFBF4; border-radius: 0 8px 8px 0; }
+  .ia-trecho { font-style: italic; color: var(--tinta-2); }
+  .ia-sugestao { color: var(--ok-tinta); margin-top: 2px; }
+  .ia-bloco { margin-top: 12px; font-size: 0.9rem; }
+  .ia-bloco ul, .ia-bloco ol { padding-left: 20px; }
 
   /* Acompanhamento: indicadores, gráfico, tabela, cartões por edição */
   .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 16px; }
@@ -656,6 +710,7 @@
     <button id="nav-feed" type="button"><span class="icone-nav">📰</span><span>Feed</span></button>
     <button id="nav-prazos" type="button"><span class="icone-nav">📅</span><span>Prazos</span></button>
     <button id="nav-inscricao" type="button"><span class="icone-nav">📝</span><span>Inscrição</span></button>
+    <button id="nav-ia" type="button"><span class="icone-nav">🤖</span><span>IA</span></button>
     <button id="nav-config" type="button"><span class="icone-nav">⚙️</span><span>Ajustes</span></button>
   </nav>
 
@@ -830,6 +885,72 @@
           </div>
         </section>
 
+        <!-- IA de estudos -->
+        <section id="pagina-ia" class="pagina">
+          <div class="cabecalho-pagina">
+            <h1>IA de estudos</h1>
+            <p>Tire dúvidas de questões do Enem e corrija redações pela grade oficial do Inep.</p>
+          </div>
+
+          <div id="ia-config" class="painel-form ia-config oculto">
+            <h3>Falta ativar a IA (uma vez só)</h3>
+            <p class="texto-suave">A IA usa o Gemini pelo Firebase, no plano gratuito. O Firebase exige uma proteção (App Check) pra ninguém usar a sua cota. O passo a passo foi enviado no chat; depois é só colar a chave no arquivo <code>ia.js</code>.</p>
+          </div>
+
+          <div class="abas-internas" role="tablist">
+            <button id="ia-subaba-duvidas" type="button" role="tab">Dúvidas de questões</button>
+            <button id="ia-subaba-redacao" type="button" role="tab">Correção de redação</button>
+          </div>
+
+          <div id="ia-painel-duvidas">
+            <div class="ia-cabecalho-conversa">
+              <span class="texto-suave">Mande o enunciado, um print ou foto da questão. Pode continuar perguntando em cima da resposta.</span>
+              <button id="ia-nova-conversa" class="link-lateral" type="button">Nova conversa</button>
+            </div>
+            <div id="ia-conversa" class="ia-conversa" aria-live="polite"></div>
+            <form id="ia-form-duvida" class="ia-form-duvida">
+              <div id="ia-duvida-previas" class="ia-previas"></div>
+              <textarea id="ia-duvida-texto" rows="3" placeholder="Cole a questão ou escreva sua dúvida… (Ctrl+Enter envia)"></textarea>
+              <div class="ia-acoes-form">
+                <label class="botao-secundario ia-botao-foto">📷 Foto/print<input id="ia-duvida-foto" type="file" accept="image/*" multiple hidden /></label>
+                <button id="ia-duvida-enviar" class="botao" type="submit">Perguntar</button>
+              </div>
+            </form>
+            <details class="ia-historico">
+              <summary>Dúvidas anteriores</summary>
+              <div id="ia-duvidas-historico"></div>
+            </details>
+          </div>
+
+          <div id="ia-painel-redacao" class="oculto">
+            <form id="ia-form-redacao" class="painel-form">
+              <label for="ia-redacao-tema">Tema da redação</label>
+              <input id="ia-redacao-tema" type="text" placeholder="Ex.: Desafios para a valorização da herança africana no Brasil" />
+              <div class="ia-modos" role="radiogroup" aria-label="Como enviar a redação">
+                <label class="ia-modo"><input type="radio" name="ia-modo" value="digitar" checked /> Digitar ou colar o texto</label>
+                <label class="ia-modo"><input type="radio" name="ia-modo" value="foto" /> Foto da redação à mão</label>
+              </div>
+              <div id="ia-redacao-bloco-texto">
+                <textarea id="ia-redacao-texto" rows="14" placeholder="Cole aqui a redação inteira, com os parágrafos."></textarea>
+                <div id="ia-redacao-contagem" class="texto-suave ia-contagem"></div>
+              </div>
+              <div id="ia-redacao-bloco-foto" class="oculto">
+                <label class="botao-secundario ia-botao-foto">📷 Adicionar foto(s)<input id="ia-redacao-foto" type="file" accept="image/*" multiple hidden /></label>
+                <p class="texto-suave">Foto de cima, com boa luz e a folha inteira. Se estiver em duas páginas, mande as duas, na ordem.</p>
+                <div id="ia-redacao-previas" class="ia-previas"></div>
+              </div>
+              <button id="ia-redacao-corrigir" class="botao" type="submit">Corrigir redação</button>
+              <p class="texto-suave ia-aviso">A nota é uma estimativa de treino. No plano gratuito do Gemini, o Google pode usar o que é enviado pra melhorar os produtos dele — não mande dados pessoais.</p>
+            </form>
+            <div id="ia-redacao-status" class="status-pdf oculto"></div>
+            <div id="ia-redacao-resultado"></div>
+            <details class="ia-historico" open>
+              <summary>Redações corrigidas</summary>
+              <div id="ia-redacoes-historico"></div>
+            </details>
+          </div>
+        </section>
+
         <!-- Ajustes -->
         <section id="pagina-config" class="pagina">
           <div class="cabecalho-pagina">
@@ -939,6 +1060,6 @@
   </div>
 </section>
 
-<script type="module" src="app.js?v=20260922d"></script>
+<script type="module" src="app.js?v=20260922f"></script>
 </body>
 </html>
