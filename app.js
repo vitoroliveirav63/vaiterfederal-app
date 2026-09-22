@@ -27,10 +27,11 @@ import {
 import {
   getMessaging,
   getToken,
+  onMessage,
   isSupported,
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-messaging.js";
-import { lerPdfDoEnem } from "./leitor-pdf.js?v=20260923a";
-import * as DICAS from "./dicas-enem.js?v=20260923a";
+import { lerPdfDoEnem } from "./leitor-pdf.js?v=20260923b";
+import * as DICAS from "./dicas-enem.js?v=20260923b";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDuG755MrvWbhSRPaPtSuVM_K8QNNkopHU",
@@ -111,7 +112,7 @@ function mostrarPagina(nome) {
 let moduloIA = null;
 async function abrirIA() {
   try {
-    moduloIA = moduloIA || (await import("./ia.js?v=20260923a"));
+    moduloIA = moduloIA || (await import("./ia.js?v=20260923b"));
     moduloIA.abrirAbaIA();
   } catch (erro) {
     console.error("Não carreguei a aba IA:", erro);
@@ -345,7 +346,7 @@ function entrarNoApp() {
     renderizarDesempenho();
   });
 
-  mostrarPagina("feed");
+  mostrarPagina(paginaPedidaNaUrl() || "feed");
 
   if (!navegacaoConfigurada) {
     navegacaoConfigurada = true;
@@ -1911,13 +1912,41 @@ $("form-config").addEventListener("submit", async (e) => {
 // ---------------------------------------------------------------------------
 // Notificações push (Web)
 // ---------------------------------------------------------------------------
+
+// A notificação abre o app com ?abrir=prazos (ou feed…). Lê isso e limpa a URL.
+function paginaPedidaNaUrl() {
+  const params = new URLSearchParams(location.search);
+  const pedida = params.get("abrir");
+  if (!pedida) return null;
+  params.delete("abrir");
+  const resto = params.toString();
+  history.replaceState(null, "", location.pathname + (resto ? "?" + resto : "") + location.hash);
+  return PAGINAS.includes(pedida) ? pedida : null;
+}
+
+function abrirPelaUrl(url) {
+  try {
+    const pedida = new URL(url, location.href).searchParams.get("abrir");
+    if (pedida && PAGINAS.includes(pedida) && !$("tela-app").classList.contains("oculto")) mostrarPagina(pedida);
+  } catch { /* url estranha: fica onde está */ }
+}
+
+// App já aberto e a pessoa clica na notificação: o service worker avisa aqui.
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.addEventListener("message", (e) => {
+    if (e.data?.tipo === "abrir-notificacao") abrirPelaUrl(e.data.url);
+  });
+}
+
+let pushEscutando = false;
 async function registrarPush(user) {
   try {
     if (!("Notification" in window) || !("serviceWorker" in navigator)) return;
     const suportado = await isSupported().catch(() => false);
     if (!suportado) return;
 
-    const registration = await navigator.serviceWorker.register("firebase-messaging-sw.js");
+    const registration = await navigator.serviceWorker.register("firebase-messaging-sw.js", { updateViaCache: "none" });
+    registration.update().catch(() => {});
     const permissao = await Notification.requestPermission();
     if (permissao !== "granted") return;
 
@@ -1925,6 +1954,22 @@ async function registrarPush(user) {
     const token = await getToken(messaging, { vapidKey: VAPID_KEY, serviceWorkerRegistration: registration });
     if (token) {
       await setDoc(doc(db, "usuarios", user.uid, "fcmTokens", token), { criadoEm: serverTimestamp() });
+    }
+    // Com o app aberto na tela, o Firebase entrega a mensagem aqui (não no
+    // service worker). Mostra a notificação do mesmo jeito, clicável.
+    if (!pushEscutando) {
+      pushEscutando = true;
+      onMessage(messaging, (payload) => {
+        const d = payload.data || {};
+        const titulo = d.titulo || payload.notification?.title;
+        if (!titulo) return;
+        registration.showNotification(titulo, {
+          body: d.corpo || payload.notification?.body || "",
+          icon: "icon-192.png",
+          tag: d.tag || undefined,
+          data: { url: d.url || location.href },
+        });
+      });
     }
   } catch (err) {
     console.warn("Push não disponível neste navegador:", err);
