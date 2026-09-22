@@ -29,8 +29,8 @@ import {
   getToken,
   isSupported,
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-messaging.js";
-import { lerPdfDoEnem } from "./leitor-pdf.js?v=20260922f";
-import * as DICAS from "./dicas-enem.js?v=20260922f";
+import { lerPdfDoEnem } from "./leitor-pdf.js?v=20260923a";
+import * as DICAS from "./dicas-enem.js?v=20260923a";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDuG755MrvWbhSRPaPtSuVM_K8QNNkopHU",
@@ -81,8 +81,8 @@ const $ = (id) => document.getElementById(id);
 // Tudo via classe CSS, pra nunca ficarem duas telas visíveis ao mesmo tempo.
 // ---------------------------------------------------------------------------
 const TELAS = ["carregando", "login", "cadastro", "verificar-email", "app"];
-const PAGINAS = ["feed", "prazos", "inscricao", "ia", "config", "perfil"];
-const TITULOS = { feed: "Feed", prazos: "Prazos", inscricao: "Inscrição", ia: "IA de estudos", config: "Ajustes", perfil: "Perfil" };
+const PAGINAS = ["feed", "prazos", "desempenho", "inscricao", "ia", "config", "perfil"];
+const TITULOS = { feed: "Feed", prazos: "Prazos", desempenho: "Desempenho", inscricao: "Inscrição", ia: "IA de estudos", config: "Ajustes", perfil: "Perfil" };
 
 function mostrarTela(nome) {
   TELAS.forEach((t) => {
@@ -111,7 +111,7 @@ function mostrarPagina(nome) {
 let moduloIA = null;
 async function abrirIA() {
   try {
-    moduloIA = moduloIA || (await import("./ia.js?v=20260922f"));
+    moduloIA = moduloIA || (await import("./ia.js?v=20260923a"));
     moduloIA.abrirAbaIA();
   } catch (erro) {
     console.error("Não carreguei a aba IA:", erro);
@@ -349,7 +349,7 @@ function entrarNoApp() {
 
   if (!navegacaoConfigurada) {
     navegacaoConfigurada = true;
-    ["feed", "prazos", "inscricao", "ia", "config"].forEach((p) => {
+    ["feed", "prazos", "desempenho", "inscricao", "ia", "config"].forEach((p) => {
       $("nav-" + p).addEventListener("click", () => mostrarPagina(p));
     });
   }
@@ -1630,7 +1630,7 @@ function htmlCartaoInscricao(r) {
 
 
 // ---------------------------------------------------------------------------
-// Painel "Seu desempenho" (topo do Feed): notas do último Enem, onde focar,
+// Painel "Seu desempenho" (aba Desempenho): notas do último Enem, onde focar,
 // conteúdos que mais caem e dicas — a base de estudo está em dicas-enem.js.
 // ---------------------------------------------------------------------------
 function linkFonte(chave) {
@@ -1864,13 +1864,14 @@ function renderizarLateral() {
       <div class="nota-destaque">${fmtMedia(ultimo.mediaGeral)}</div>
       ${anterior ? `<div class="texto-suave">${htmlDelta(ultimo.mediaGeral, anterior.mediaGeral, anterior.ano)}</div>` : ""}
       <div class="mini-notas">${AREAS.map((a) => `<span>${a.curto}</span><span>${fmtProva(a.chave, ultimo.notas?.[a.chave])}</span>`).join("")}</div>
-      <button class="link-lateral" type="button" data-ir="acompanhamento">Ver acompanhamento →</button>`;
+      <button class="link-lateral" type="button" data-ir="desempenho">Ver desempenho →</button>`;
   } else {
     $("lateral-enem").innerHTML = `
       <p class="texto-suave" style="margin:0">Anexe o PDF do seu boletim pra acompanhar suas notas por aqui.</p>
       <button class="link-lateral" type="button" data-ir="cadastro">Cadastrar inscrição →</button>`;
   }
   $("lateral-enem").querySelector("[data-ir]").addEventListener("click", (e) => {
+    if (e.currentTarget.dataset.ir === "desempenho") return mostrarPagina("desempenho");
     mostrarPagina("inscricao");
     mostrarSubaba(e.currentTarget.dataset.ir);
   });
