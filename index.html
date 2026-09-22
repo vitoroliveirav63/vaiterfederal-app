@@ -183,6 +183,7 @@
   }
   .barra-lateral button .icone-nav { font-size: 1.2rem; }
   .barra-lateral button.nav-ativo { color: var(--marinho); font-weight: 600; }
+  @media (max-width: 400px) { .barra-lateral button { font-size: 0.6rem; padding: 4px 1px; } }
   .marca { display: none; }
 
   @media (min-width: 820px) {
@@ -548,6 +549,14 @@
   .ia-form-duvida textarea, #ia-redacao-texto { width: 100%; resize: vertical; font: inherit; font-size: 0.92rem; border: 1px solid var(--borda); border-radius: 10px; padding: 10px 12px; box-sizing: border-box; }
   .ia-acoes-form { display: flex; justify-content: space-between; gap: 10px; margin-top: 8px; }
   .ia-botao-foto { cursor: pointer; display: inline-flex; align-items: center; gap: 6px; margin: 0; text-transform: none; letter-spacing: 0; font-size: 0.88rem; }
+  .ia-clipe { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; flex-shrink: 0; margin: 0; padding: 4px 6px; border-radius: 8px; cursor: pointer; color: var(--marinho); font-size: 0.84rem; font-weight: 600; text-transform: none; letter-spacing: 0; }
+  .ia-clipe:hover { background: var(--cartao-2); }
+  .ia-clipe:focus-within { outline: 2px solid var(--marinho); outline-offset: 2px; }
+  .ia-clipe-icone { flex-shrink: 0; }
+  .ia-arquivo { display: inline-flex; align-items: center; gap: 6px; max-width: 220px; padding: 8px 26px 8px 10px; border: 1px solid var(--borda); border-radius: 8px; background: var(--cartao-2); font-size: 0.8rem; color: var(--tinta); }
+  .ia-arquivo span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ia-arquivo small { color: var(--tinta-3); white-space: nowrap; }
+  .ia-msg .ia-arquivo { margin: 0 6px 6px 0; padding-right: 10px; }
   .ia-previas { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 6px; }
   .ia-miniatura { position: relative; }
   .ia-miniatura img { width: 64px; height: 64px; object-fit: cover; border-radius: 8px; border: 1px solid var(--borda); }
@@ -709,6 +718,7 @@
     <div class="marca">Vai ter federal<span>sim!</span></div>
     <button id="nav-feed" type="button"><span class="icone-nav">📰</span><span>Feed</span></button>
     <button id="nav-prazos" type="button"><span class="icone-nav">📅</span><span>Prazos</span></button>
+    <button id="nav-desempenho" type="button"><span class="icone-nav">📊</span><span>Desempenho</span></button>
     <button id="nav-inscricao" type="button"><span class="icone-nav">📝</span><span>Inscrição</span></button>
     <button id="nav-ia" type="button"><span class="icone-nav">🤖</span><span>IA</span></button>
     <button id="nav-config" type="button"><span class="icone-nav">⚙️</span><span>Ajustes</span></button>
@@ -740,7 +750,6 @@
             <h1>Feed</h1>
             <p>Tudo que mudou nos sites da UFC e do IFCE, em um lugar só.</p>
           </div>
-          <div id="painel-desempenho"></div>
           <div class="chips">
             <button class="chip chip-ativo" data-filtro="todos" type="button">Tudo</button>
             <button class="chip" data-filtro="UFC" type="button">UFC</button>
@@ -754,6 +763,15 @@
           <a href="https://www.instagram.com/ifcefortalezaoficial/" target="_blank" rel="noopener">IFCE Fortaleza · @ifcefortalezaoficial <span>↗</span></a>
           <a href="https://www.instagram.com/inep_oficial/" target="_blank" rel="noopener">Inep (Enem) · @inep_oficial <span>↗</span></a>
           </div>
+        </section>
+
+        <!-- Desempenho -->
+        <section id="pagina-desempenho" class="pagina">
+          <div class="cabecalho-pagina">
+            <h1>Desempenho</h1>
+            <p>Suas notas no Enem, onde focar e o que mais cai em cada área.</p>
+          </div>
+          <div id="painel-desempenho"></div>
         </section>
 
         <!-- Prazos -->
@@ -904,7 +922,7 @@
 
           <div id="ia-painel-duvidas">
             <div class="ia-cabecalho-conversa">
-              <span class="texto-suave">Mande o enunciado, um print ou foto da questão. Pode continuar perguntando em cima da resposta.</span>
+              <span class="texto-suave">Mande o enunciado ou anexe a questão (foto, print, PDF, Word…). Pode continuar perguntando em cima da resposta.</span>
               <button id="ia-nova-conversa" class="link-lateral" type="button">Nova conversa</button>
             </div>
             <div id="ia-conversa" class="ia-conversa" aria-live="polite"></div>
@@ -912,7 +930,7 @@
               <div id="ia-duvida-previas" class="ia-previas"></div>
               <textarea id="ia-duvida-texto" rows="3" placeholder="Cole a questão ou escreva sua dúvida… (Ctrl+Enter envia)"></textarea>
               <div class="ia-acoes-form">
-                <label class="botao-secundario ia-botao-foto">📷 Foto/print<input id="ia-duvida-foto" type="file" accept="image/*" multiple hidden /></label>
+                <label class="ia-clipe" title="Imagem, PDF, Word, texto, planilha, áudio…"><svg class="ia-clipe-icone" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Anexar arquivo</span><input id="ia-duvida-foto" type="file" multiple hidden /></label>
                 <button id="ia-duvida-enviar" class="botao" type="submit">Perguntar</button>
               </div>
             </form>
@@ -928,15 +946,15 @@
               <input id="ia-redacao-tema" type="text" placeholder="Ex.: Desafios para a valorização da herança africana no Brasil" />
               <div class="ia-modos" role="radiogroup" aria-label="Como enviar a redação">
                 <label class="ia-modo"><input type="radio" name="ia-modo" value="digitar" checked /> Digitar ou colar o texto</label>
-                <label class="ia-modo"><input type="radio" name="ia-modo" value="foto" /> Foto da redação à mão</label>
+                <label class="ia-modo"><input type="radio" name="ia-modo" value="foto" /> Anexar arquivo (foto, PDF, Word…)</label>
               </div>
               <div id="ia-redacao-bloco-texto">
                 <textarea id="ia-redacao-texto" rows="14" placeholder="Cole aqui a redação inteira, com os parágrafos."></textarea>
                 <div id="ia-redacao-contagem" class="texto-suave ia-contagem"></div>
               </div>
               <div id="ia-redacao-bloco-foto" class="oculto">
-                <label class="botao-secundario ia-botao-foto">📷 Adicionar foto(s)<input id="ia-redacao-foto" type="file" accept="image/*" multiple hidden /></label>
-                <p class="texto-suave">Foto de cima, com boa luz e a folha inteira. Se estiver em duas páginas, mande as duas, na ordem.</p>
+                <label class="ia-clipe" title="Foto, PDF, Word, texto…"><svg class="ia-clipe-icone" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Anexar arquivo</span><input id="ia-redacao-foto" type="file" multiple hidden /></label>
+                <p class="texto-suave">Pode ser foto da folha, PDF, Word (.docx), .txt ou outro arquivo. Se for foto: de cima, com boa luz e a folha inteira; se estiver em duas páginas, mande as duas, na ordem.</p>
                 <div id="ia-redacao-previas" class="ia-previas"></div>
               </div>
               <button id="ia-redacao-corrigir" class="botao" type="submit">Corrigir redação</button>
@@ -1060,6 +1078,6 @@
   </div>
 </section>
 
-<script type="module" src="app.js?v=20260922f"></script>
+<script type="module" src="app.js?v=20260923a"></script>
 </body>
 </html>
