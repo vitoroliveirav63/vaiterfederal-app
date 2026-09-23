@@ -291,7 +291,41 @@
     .topo-titulo b { display: none; }
     .topo-titulo span { display: inline; }
   }
+  .acoes-topo { display: flex; align-items: center; gap: 6px; }
   .menu-perfil { position: relative; }
+  /* Sino de avisos */
+  .botao-sino {
+    position: relative; width: 38px; height: 38px; border-radius: 50%;
+    background: none; border: 1px solid var(--borda); cursor: pointer;
+    font-size: 1.05rem; line-height: 1; display: grid; place-items: center;
+  }
+  .botao-sino:hover { background: var(--cartao-2); }
+  .sino-bolinha {
+    position: absolute; top: -4px; right: -4px; min-width: 19px; height: 19px; padding: 0 5px;
+    border-radius: 999px; background: var(--erro-tinta); color: #fff;
+    font-size: 0.68rem; font-weight: 700; display: grid; place-items: center;
+    border: 2px solid var(--creme);
+  }
+  .menu-avisos { width: min(340px, calc(100vw - 24px)); padding: 6px 6px 4px; }
+  .avisos-cabecalho { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+  .avisos-cabecalho .link-lateral { font-size: 0.76rem; }
+  .avisos-lista { max-height: min(60vh, 420px); overflow-y: auto; }
+  .aviso-item { display: flex; gap: 8px; align-items: flex-start; padding: 9px 10px; border-radius: 9px; }
+  .aviso-item + .aviso-item { border-top: 1px solid var(--borda); border-radius: 0; }
+  .aviso-item.nao-lido { background: var(--azul-suave); }
+  /* Estes botões ficam dentro do menu suspenso, então precisam desfazer o
+     "display:flex" e o "width:100%" da regra geral de .menu-suspenso button. */
+  .menu-avisos .aviso-texto { display: block; flex: 1; min-width: 0; width: auto; background: none; border: none; text-align: left; font-family: inherit; cursor: pointer; padding: 2px 0; color: var(--tinta); }
+  .menu-avisos .aviso-acoes button { display: grid; place-items: center; width: 28px; }
+  .menu-avisos .avisos-cabecalho .link-lateral { width: auto; padding: 0; }
+  .aviso-texto b { display: block; font-size: 0.85rem; font-weight: 700; margin-bottom: 2px; overflow-wrap: anywhere; }
+  .aviso-texto span { display: block; font-size: 0.8rem; color: var(--tinta-2); overflow-wrap: anywhere; }
+  .aviso-texto small { display: block; font-size: 0.72rem; color: var(--tinta-3); margin-top: 3px; }
+  .aviso-acoes { display: flex; flex-direction: column; gap: 2px; }
+  .aviso-acoes button { background: none; border: none; cursor: pointer; font-size: 0.9rem; padding: 3px 4px; border-radius: 7px; line-height: 1; }
+  .aviso-acoes button:hover { background: var(--cartao-2); }
+  .avisos-vazio { color: var(--tinta-3); font-size: 0.85rem; padding: 16px 10px; text-align: center; }
+  .avisos-alternar { width: 100%; background: none; border: none; border-top: 1px solid var(--borda); cursor: pointer; font-family: inherit; font-size: 0.78rem; color: var(--azul); padding: 9px 0 7px; margin-top: 4px; }
   .avatar {
     width: 38px; height: 38px; border-radius: 50%;
     background: var(--marinho); color: #fff;
@@ -834,6 +868,20 @@
   <div class="area-principal">
     <header class="barra-topo">
       <div class="topo-titulo"><b><img src="logo.svg" alt="" class="topo-logo" />Vai ter federal, sim!</b><span id="topo-titulo">Olá!</span></div>
+      <div class="acoes-topo">
+      <div class="menu-perfil menu-sino">
+        <button id="btn-sino" class="botao-sino" type="button" aria-haspopup="menu" aria-expanded="false" aria-label="Abrir avisos">
+          🔔<span id="sino-contagem" class="sino-bolinha oculto">0</span>
+        </button>
+        <div id="menu-avisos" class="menu-suspenso menu-avisos oculto" role="menu">
+          <div class="menu-cabecalho avisos-cabecalho">
+            <strong>Avisos</strong>
+            <button id="avisos-marcar-todos" type="button" class="link-lateral" title="Marcar todos como vistos">Marcar todos</button>
+          </div>
+          <div id="avisos-lista" class="avisos-lista"></div>
+          <button id="avisos-ver-lidos" type="button" class="avisos-alternar">Mostrar os já vistos</button>
+        </div>
+      </div>
       <div class="menu-perfil">
         <button id="btn-avatar" class="avatar" type="button" aria-haspopup="menu" aria-expanded="false" aria-label="Abrir menu do perfil">?</button>
         <div id="menu-perfil" class="menu-suspenso oculto" role="menu">
@@ -845,6 +893,7 @@
           <button id="menu-editar-perfil" type="button" role="menuitem">✏️ Editar perfil</button>
           <button id="btn-logout-config" type="button" role="menuitem" class="menu-sair">🚪 Sair</button>
         </div>
+      </div>
       </div>
     </header>
 
@@ -1200,6 +1249,6 @@
   </div>
 </section>
 
-<script type="module" src="app.js?v=20260926d"></script>
+<script type="module" src="app.js?v=20260927b"></script>
 </body>
 </html>
