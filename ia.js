@@ -11,7 +11,8 @@
 import { getApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import { getAuth } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import {
-  getFirestore, collection, addDoc, deleteDoc, doc, query, orderBy, limit, onSnapshot, serverTimestamp,
+  getFirestore, collection, addDoc, deleteDoc, doc, setDoc, updateDoc, getDocs, writeBatch,
+  query, orderBy, limit, onSnapshot, serverTimestamp,
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 
 // Chave do reCAPTCHA Enterprise (tipo "site"/Web, pontuação, sem caixinha).
@@ -391,10 +392,13 @@ function escutarHistoricos() {
     historicoRedacoes = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
     renderizarHistoricoRedacoes();
   }, () => {}));
-  pararHistoricos.push(onSnapshot(query(collection(db, "usuarios", user.uid, "duvidas"), orderBy("criadoEm", "desc"), limit(20)), (snap) => {
-    historicoDuvidas = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-    renderizarHistoricoDuvidas();
+  pararHistoricos.push(onSnapshot(query(collection(db, "usuarios", user.uid, "conversas"), orderBy("atualizadoEm", "desc"), limit(60)), (snap) => {
+    conversas = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    if (conversaAtual && !conversas.some((c) => c.id === conversaAtual)) novaConversa();
+    renderizarListaConversas();
+    renderizarTituloConversa();
   }, () => {}));
+  migrarDuvidasAntigas(user).catch(() => {});
 }
 
 export function sairDaIA() {
@@ -402,15 +406,201 @@ export function sairDaIA() {
   pararHistoricos = [];
   conversa = [];
   chat = null;
+  conversaAtual = null;
 }
 
 // ---------------------------------------------------------------------------
 // Dúvidas (conversa)
 // ---------------------------------------------------------------------------
-let conversa = []; // {papel: "voce"|"ia", texto, previas[]}
+let conversa = []; // {papel: "voce"|"ia", texto, previas[], arquivos[]}
 let chat = null;
 let imagensDuvida = [];
-let historicoDuvidas = [];
+let conversas = [];            // lista guardada no Firestore
+let conversaAtual = null;      // id da conversa aberta (null = ainda não salva)
+let mostrandoArquivadas = false;
+const MAX_MENSAGENS = 60;
+
+// ---------------------------------------------------------------------------
+// Conversas: criar, abrir, renomear, arquivar, apagar
+// ---------------------------------------------------------------------------
+function colecaoConversas() {
+  const user = getAuth().currentUser;
+  return user ? collection(getFirestore(), "usuarios", user.uid, "conversas") : null;
+}
+
+function tituloAutomatico(texto, temAnexo) {
+  const limpo = (texto || "").replace(/\s+/g, " ").trim();
+  if (limpo) return limpo.slice(0, 60) + (limpo.length > 60 ? "…" : "");
+  return temAnexo ? "Questão em anexo" : `Conversa de ${new Date().toLocaleDateString("pt-BR")}`;
+}
+
+function paraGuardar(msgs) {
+  return msgs.slice(-MAX_MENSAGENS).map((m) => ({
+    papel: m.papel,
+    texto: String(m.texto || "").slice(0, 12000),
+    anexos: [...(m.arquivos || []).map((a) => a.nome), ...(m.previas || []).map(() => "imagem")].slice(0, 5),
+  }));
+}
+
+async function salvarConversa() {
+  const col = colecaoConversas();
+  if (!col || !conversa.length) return;
+  const dados = { mensagens: paraGuardar(conversa), atualizadoEm: serverTimestamp() };
+  try {
+    if (conversaAtual) {
+      await updateDoc(doc(col, conversaAtual), dados);
+    } else {
+      const primeira = conversa.find((m) => m.papel === "voce");
+      const ref = await addDoc(col, {
+        ...dados,
+        titulo: tituloAutomatico(primeira?.texto, Boolean(primeira?.previas?.length || primeira?.arquivos?.length)),
+        arquivada: false,
+        criadoEm: serverTimestamp(),
+      });
+      conversaAtual = ref.id;
+      renderizarTituloConversa();
+    }
+  } catch (e) {
+    console.warn("Não salvei a conversa:", e);
+  }
+}
+
+function novaConversa() {
+  conversaAtual = null;
+  conversa = [];
+  chat = null;
+  imagensDuvida = [];
+  renderizarPreviasDuvida();
+  renderizarConversa();
+  renderizarTituloConversa();
+  renderizarListaConversas();
+}
+
+function abrirConversa(id) {
+  const c = conversas.find((x) => x.id === id);
+  if (!c) return;
+  conversaAtual = id;
+  conversa = (c.mensagens || []).map((m) => ({
+    papel: m.papel,
+    texto: m.texto,
+    arquivos: (m.anexos || []).filter((n) => n !== "imagem").map((nome) => ({ nome, tamanho: 0 })),
+  }));
+  chat = null; // é recriado no próximo envio, já com este histórico
+  renderizarConversa();
+  renderizarTituloConversa();
+  renderizarListaConversas();
+  $("ia-lista-conversas").classList.add("oculto");
+  $("ia-abrir-lista").setAttribute("aria-expanded", "false");
+}
+
+// O Gemini precisa do histórico em texto pra continuar de onde parou.
+function historicoParaOModelo() {
+  return conversa
+    .filter((m) => m.texto)
+    .map((m) => ({ role: m.papel === "voce" ? "user" : "model", parts: [{ text: m.texto }] }))
+    .slice(0, -1); // a última mensagem é a que está sendo enviada agora
+}
+
+async function renomearConversa(id) {
+  const c = conversas.find((x) => x.id === id);
+  const novo = prompt("Nome da conversa:", c?.titulo || "");
+  if (novo === null) return;
+  const nome = novo.trim().slice(0, 80);
+  if (!nome) return;
+  try {
+    await updateDoc(doc(colecaoConversas(), id), { titulo: nome });
+  } catch (e) {
+    console.warn("Não renomeei:", e);
+  }
+}
+
+async function arquivarConversa(id, arquivar) {
+  try {
+    await updateDoc(doc(colecaoConversas(), id), { arquivada: arquivar });
+    if (arquivar && id === conversaAtual) novaConversa();
+  } catch (e) {
+    console.warn("Não arquivei:", e);
+  }
+}
+
+async function apagarConversa(id) {
+  const c = conversas.find((x) => x.id === id);
+  if (!confirm(`Apagar a conversa "${c?.titulo || ""}"? Isso não tem volta.`)) return;
+  try {
+    await deleteDoc(doc(colecaoConversas(), id));
+    if (id === conversaAtual) novaConversa();
+  } catch (e) {
+    console.warn("Não apaguei:", e);
+  }
+}
+
+function renderizarTituloConversa() {
+  const alvo = $("ia-titulo-conversa");
+  if (!alvo) return;
+  const c = conversas.find((x) => x.id === conversaAtual);
+  alvo.textContent = c?.titulo || (conversa.length ? "Conversa sem nome" : "Nova conversa");
+  alvo.disabled = !conversaAtual;
+}
+
+function dataCurta(ts) {
+  const d = ts?.toDate ? ts.toDate() : null;
+  if (!d) return "";
+  const hoje = new Date();
+  const mesmoDia = d.toDateString() === hoje.toDateString();
+  return mesmoDia ? d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) : d.toLocaleDateString("pt-BR");
+}
+
+function renderizarListaConversas() {
+  const alvo = $("ia-lista-itens");
+  if (!alvo) return;
+  $("ia-lista-ativas").classList.toggle("aba-ativa", !mostrandoArquivadas);
+  $("ia-lista-arquivadas").classList.toggle("aba-ativa", mostrandoArquivadas);
+  const itens = conversas.filter((c) => Boolean(c.arquivada) === mostrandoArquivadas);
+  if (!itens.length) {
+    alvo.innerHTML = `<p class="ia-lista-vazia">${mostrandoArquivadas ? "Nenhuma conversa arquivada." : "Nenhuma conversa ainda. Faça uma pergunta que ela aparece aqui."}</p>`;
+    return;
+  }
+  alvo.innerHTML = itens.map((c) => `
+    <div class="ia-lista-item${c.id === conversaAtual ? " ativa" : ""}">
+      <button class="ia-lista-abrir" type="button" data-abrir="${c.id}">
+        <b>${esc(c.titulo || "Sem nome")}</b>
+        <small>${(c.mensagens || []).length} mensage${(c.mensagens || []).length === 1 ? "m" : "ns"} · ${dataCurta(c.atualizadoEm)}</small>
+      </button>
+      <button class="ia-acao" type="button" data-renomear="${c.id}" title="Renomear" aria-label="Renomear">✏️</button>
+      <button class="ia-acao" type="button" data-arquivar="${c.id}" title="${c.arquivada ? "Desarquivar" : "Arquivar"}" aria-label="${c.arquivada ? "Desarquivar" : "Arquivar"}">${c.arquivada ? "📤" : "📥"}</button>
+      <button class="ia-acao" type="button" data-apagar="${c.id}" title="Apagar" aria-label="Apagar">🗑️</button>
+    </div>`).join("");
+  alvo.querySelectorAll("[data-abrir]").forEach((b) => b.addEventListener("click", () => abrirConversa(b.dataset.abrir)));
+  alvo.querySelectorAll("[data-renomear]").forEach((b) => b.addEventListener("click", () => renomearConversa(b.dataset.renomear)));
+  alvo.querySelectorAll("[data-arquivar]").forEach((b) => b.addEventListener("click", () => {
+    const c = conversas.find((x) => x.id === b.dataset.arquivar);
+    arquivarConversa(b.dataset.arquivar, !c?.arquivada);
+  }));
+  alvo.querySelectorAll("[data-apagar]").forEach((b) => b.addEventListener("click", () => apagarConversa(b.dataset.apagar)));
+}
+
+// As dúvidas soltas da versão anterior viram conversas, uma vez só.
+async function migrarDuvidasAntigas(user) {
+  const db = getFirestore();
+  const antigas = await getDocs(query(collection(db, "usuarios", user.uid, "duvidas"), orderBy("criadoEm", "desc"), limit(30)));
+  if (antigas.empty) return;
+  const lote = writeBatch(db);
+  antigas.docs.forEach((d) => {
+    const v = d.data();
+    lote.set(doc(collection(db, "usuarios", user.uid, "conversas")), {
+      titulo: tituloAutomatico(v.pergunta, Boolean(v.imagens)),
+      arquivada: false,
+      criadoEm: v.criadoEm || serverTimestamp(),
+      atualizadoEm: v.criadoEm || serverTimestamp(),
+      mensagens: [
+        { papel: "voce", texto: String(v.pergunta || "").slice(0, 12000), anexos: [] },
+        { papel: "ia", texto: String(v.resposta || "").slice(0, 12000), anexos: [] },
+      ],
+    });
+    lote.delete(d.ref);
+  });
+  await lote.commit();
+}
 
 function renderizarConversa() {
   const alvo = $("ia-conversa");
@@ -467,7 +657,7 @@ async function enviarDuvida(e) {
     const resultado = await comModelos(async (nome) => {
       if (!chat || chat.modelo !== nome) {
         const m = modelo(nome, SISTEMA_DUVIDAS, { generationConfig: { temperature: 0.3 } });
-        chat = { modelo: nome, sessao: m.startChat({ history: [] }) };
+        chat = { modelo: nome, sessao: m.startChat({ history: historicoParaOModelo() }) };
       }
       const stream = await chat.sessao.sendMessageStream(partes);
       resposta.carregando = false;
@@ -480,7 +670,7 @@ async function enviarDuvida(e) {
     resposta.texto = resultado || resposta.texto;
     resposta.carregando = false;
     renderizarConversa();
-    salvarDuvida(texto, imagens.length, resposta.texto);
+    salvarConversa();
   } catch (erro) {
     if (String(erro?.message) !== "sem-chave") console.error("IA (dúvida):", erro);
     resposta.carregando = false;
@@ -490,41 +680,6 @@ async function enviarDuvida(e) {
   } finally {
     botao.disabled = false;
   }
-}
-
-async function salvarDuvida(pergunta, qtdImagens, resposta) {
-  const user = getAuth().currentUser;
-  if (!user || !resposta) return;
-  try {
-    await addDoc(collection(getFirestore(), "usuarios", user.uid, "duvidas"), {
-      pergunta: (pergunta || "(questão enviada em anexo)").slice(0, 3000),
-      imagens: qtdImagens,
-      resposta: resposta.slice(0, 20000),
-      criadoEm: serverTimestamp(),
-    });
-  } catch (e) {
-    console.warn("Não salvei a dúvida:", e);
-  }
-}
-
-function renderizarHistoricoDuvidas() {
-  const alvo = $("ia-duvidas-historico");
-  if (!alvo) return;
-  if (!historicoDuvidas.length) {
-    alvo.innerHTML = '<p class="texto-suave">As dúvidas respondidas ficam guardadas aqui.</p>';
-    return;
-  }
-  alvo.innerHTML = historicoDuvidas.map((d) => `
-    <details class="ia-item-historico">
-      <summary><span>${esc(d.pergunta.slice(0, 90))}${d.pergunta.length > 90 ? "…" : ""}${d.imagens ? " 📎" : ""}</span>
-        <small>${d.criadoEm?.toDate ? d.criadoEm.toDate().toLocaleDateString("pt-BR") : ""}</small></summary>
-      <div class="ia-msg-texto">${md(d.resposta)}</div>
-      <button type="button" class="link-lateral" data-apagar-duvida="${d.id}">Apagar</button>
-    </details>`).join("");
-  alvo.querySelectorAll("[data-apagar-duvida]").forEach((b) => b.addEventListener("click", async () => {
-    const user = getAuth().currentUser;
-    if (user && confirm("Apagar essa dúvida do histórico?")) await deleteDoc(doc(getFirestore(), "usuarios", user.uid, "duvidas", b.dataset.apagarDuvida));
-  }));
 }
 
 // ---------------------------------------------------------------------------
@@ -780,11 +935,17 @@ function montarEventos() {
     e.target.value = "";
     await anexarArquivos(arquivos, imagensDuvida, (erro) => renderizarPreviasDuvida(erro));
   });
-  $("ia-nova-conversa").addEventListener("click", () => {
-    conversa = [];
-    chat = null;
-    renderizarConversa();
+  $("ia-nova-conversa").addEventListener("click", novaConversa);
+  $("ia-abrir-lista").addEventListener("click", () => {
+    const lista = $("ia-lista-conversas");
+    const abrindo = lista.classList.contains("oculto");
+    lista.classList.toggle("oculto", !abrindo);
+    $("ia-abrir-lista").setAttribute("aria-expanded", String(abrindo));
+    if (abrindo) renderizarListaConversas();
   });
+  $("ia-titulo-conversa").addEventListener("click", () => conversaAtual && renomearConversa(conversaAtual));
+  $("ia-lista-ativas").addEventListener("click", () => { mostrandoArquivadas = false; renderizarListaConversas(); });
+  $("ia-lista-arquivadas").addEventListener("click", () => { mostrandoArquivadas = true; renderizarListaConversas(); });
 
   document.querySelectorAll('input[name="ia-modo"]').forEach((r) => r.addEventListener("change", atualizarModoRedacao));
   $("ia-redacao-texto").addEventListener("input", contarTexto);
@@ -796,6 +957,7 @@ function montarEventos() {
   $("ia-form-redacao").addEventListener("submit", corrigirRedacao);
 
   mostrarSubabaIA("duvidas");
+  renderizarTituloConversa();
   atualizarModoRedacao();
   contarTexto();
   renderizarConversa();
