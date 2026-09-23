@@ -30,8 +30,8 @@ import {
   onMessage,
   isSupported,
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-messaging.js";
-import { lerPdfDoEnem } from "./leitor-pdf.js?v=20260926c";
-import * as DICAS from "./dicas-enem.js?v=20260926c";
+import { lerPdfDoEnem } from "./leitor-pdf.js?v=20260926d";
+import * as DICAS from "./dicas-enem.js?v=20260926d";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDuG755MrvWbhSRPaPtSuVM_K8QNNkopHU",
@@ -151,7 +151,7 @@ function mostrarPagina(nome, semHistorico) {
 let moduloIA = null;
 async function abrirIA() {
   try {
-    moduloIA = moduloIA || (await import("./ia.js?v=20260926c"));
+    moduloIA = moduloIA || (await import("./ia.js?v=20260926d"));
     moduloIA.abrirAbaIA();
   } catch (erro) {
     console.error("Não carreguei a aba IA:", erro);
@@ -581,11 +581,20 @@ function ehRecente(ts) {
 }
 
 function nomeArquivoDeUrl(url) {
+  let nome;
   try {
-    return decodeURIComponent(url.split("/").pop().split("?")[0]);
+    // Alguns links terminam num código (o /8c1f2a44-…/ do portal do IFCE):
+    // procura, de trás pra frente, o pedaço que parece nome de arquivo.
+    const partes = decodeURIComponent(url.split("?")[0]).split("/").filter(Boolean);
+    nome = [...partes].reverse().find((x) => /\.[a-z0-9]{2,5}$/i.test(x)) || partes[partes.length - 1] || url;
   } catch {
-    return url;
+    nome = url;
   }
+  nome = nome.replace(/[_+]/g, " ").trim() || url;
+  // Nome gigante (alguns PDFs do IFCE têm 120 caracteres): corta no meio,
+  // mantendo a extensão à vista.
+  if (nome.length > 70) nome = nome.slice(0, 45) + "…" + nome.slice(-22);
+  return nome;
 }
 
 // Texto de páginas lidas antes da limpeza do robô: tira nomes de ícone
