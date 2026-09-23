@@ -30,8 +30,8 @@ import {
   onMessage,
   isSupported,
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-messaging.js";
-import { lerPdfDoEnem } from "./leitor-pdf.js?v=20260925d";
-import * as DICAS from "./dicas-enem.js?v=20260925d";
+import { lerPdfDoEnem } from "./leitor-pdf.js?v=20260926b";
+import * as DICAS from "./dicas-enem.js?v=20260926b";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDuG755MrvWbhSRPaPtSuVM_K8QNNkopHU",
@@ -128,6 +128,17 @@ function mostrarPagina(nome, semHistorico) {
     const navBtn = $("nav-" + p);
     if (navBtn) navBtn.classList.toggle("nav-ativo", p === nome);
   });
+  if (direcaoDaTroca) {
+    const pag = $("pagina-" + nome);
+    const classe = direcaoDaTroca === "direita" ? "veio-da-direita" : "veio-da-esquerda";
+    direcaoDaTroca = null;
+    if (pag) {
+      pag.classList.remove("veio-da-direita", "veio-da-esquerda");
+      void pag.offsetWidth;
+      pag.classList.add(classe);
+      setTimeout(() => pag.classList.remove(classe), 300);
+    }
+  }
   document.title = `${TITULOS[nome] || "Início"} · Vai ter federal, sim!`;
   fecharMenuPerfil();
   rolarPraCima();
@@ -140,13 +151,84 @@ function mostrarPagina(nome, semHistorico) {
 let moduloIA = null;
 async function abrirIA() {
   try {
-    moduloIA = moduloIA || (await import("./ia.js?v=20260925d"));
+    moduloIA = moduloIA || (await import("./ia.js?v=20260926b"));
     moduloIA.abrirAbaIA();
   } catch (erro) {
     console.error("Não carreguei a aba IA:", erro);
     $("ia-config").classList.remove("oculto");
     $("ia-config").insertAdjacentHTML("afterbegin", '<p class="status-pdf falha">Não consegui carregar a IA. Recarregue a página.</p>');
   }
+}
+
+// ---------------------------------------------------------------------------
+// Gestos: arrastar o dedo pro lado troca de aba (celular)
+// ---------------------------------------------------------------------------
+const ABAS_EM_ORDEM = ["feed", "prazos", "desempenho", "inscricao", "ia", "config"];
+let direcaoDaTroca = null;
+let gesto = null;
+
+function paginaAtiva() {
+  return PAGINAS.find((p) => $("pagina-" + p)?.classList.contains("ativa"));
+}
+
+// Não atrapalha campos de texto nem áreas que já rolam pro lado sozinhas.
+function podeArrastar(alvo) {
+  if (window.innerWidth >= 820) return false;
+  if (alvo.closest("input, textarea, select, .ia-conversa, .ia-previas")) return false;
+  for (let el = alvo; el && el !== document.body; el = el.parentElement) {
+    const estilo = getComputedStyle(el).overflowX;
+    if ((estilo === "auto" || estilo === "scroll") && el.scrollWidth > el.clientWidth + 4) return false;
+  }
+  return true;
+}
+
+function trocarAbaVizinha(passo) {
+  const atual = paginaAtiva();
+  const i = ABAS_EM_ORDEM.indexOf(atual);
+  if (i < 0) return;
+  const destino = ABAS_EM_ORDEM[i + passo];
+  if (!destino) return;
+  direcaoDaTroca = passo > 0 ? "direita" : "esquerda";
+  mostrarPagina(destino);
+}
+
+function ligarGestos() {
+  const area = document.querySelector(".area-principal");
+  if (!area) return;
+  area.addEventListener("touchstart", (e) => {
+    if (e.touches.length !== 1 || !podeArrastar(e.target)) { gesto = null; return; }
+    gesto = { x: e.touches[0].clientX, y: e.touches[0].clientY, em: Date.now(), lateral: false };
+  }, { passive: true });
+
+  area.addEventListener("touchmove", (e) => {
+    if (!gesto || e.touches.length !== 1) return;
+    const dx = e.touches[0].clientX - gesto.x;
+    const dy = e.touches[0].clientY - gesto.y;
+    if (!gesto.lateral) {
+      if (Math.abs(dy) > 12 && Math.abs(dy) > Math.abs(dx)) { gesto = null; return; } // está rolando a página
+      if (Math.abs(dx) < 14 || Math.abs(dx) <= Math.abs(dy)) return;
+      gesto.lateral = true;
+    }
+    // Acompanha o dedo de leve, só pra dar a sensação de arrastar.
+    const pag = $("pagina-" + paginaAtiva());
+    if (pag) {
+      pag.classList.add("arrastando");
+      pag.style.transform = `translateX(${Math.max(-60, Math.min(60, dx * 0.28))}px)`;
+    }
+  }, { passive: true });
+
+  const soltar = (e) => {
+    const pag = $("pagina-" + paginaAtiva());
+    if (pag) { pag.classList.remove("arrastando"); pag.style.transform = ""; }
+    if (!gesto || !gesto.lateral) { gesto = null; return; }
+    const toque = e.changedTouches?.[0];
+    const dx = toque ? toque.clientX - gesto.x : 0;
+    const rapido = Date.now() - gesto.em < 500 && Math.abs(dx) > 40;
+    if (Math.abs(dx) > 70 || rapido) trocarAbaVizinha(dx < 0 ? 1 : -1);
+    gesto = null;
+  };
+  area.addEventListener("touchend", soltar, { passive: true });
+  area.addEventListener("touchcancel", soltar, { passive: true });
 }
 
 function showMsg(id, texto) {
@@ -378,6 +460,7 @@ function entrarNoApp() {
 
   if (!navegacaoConfigurada) {
     navegacaoConfigurada = true;
+    ligarGestos();
     ["feed", "prazos", "desempenho", "inscricao", "ia", "config"].forEach((p) => {
       $("nav-" + p).addEventListener("click", () => mostrarPagina(p));
     });
