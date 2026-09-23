@@ -436,15 +436,21 @@
     font-size: 0.83rem; font-family: inherit; font-weight: 600; cursor: pointer; padding: 8px 0 0;
   }
   .lista-anexos { margin: 12px 0 0; padding: 0; list-style: none; font-size: 0.83rem; }
-  .lista-anexos li { margin-bottom: 5px; }
-  .lista-anexos a { color: var(--azul); }
+  .lista-anexos li { margin-bottom: 6px; display: flex; align-items: flex-start; gap: 6px; }
+  .lista-anexos a { color: var(--azul); min-width: 0; overflow-wrap: anywhere; word-break: break-word; line-height: 1.4; }
   .cartao-rodape {
-    display: flex; justify-content: space-between; align-items: center;
+    display: flex; justify-content: space-between; align-items: flex-start;
     margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--borda);
     gap: 10px; flex-wrap: wrap;
   }
-  .cartao-rodape a { color: var(--azul); font-size: 0.82rem; font-weight: 600; text-decoration: none; }
-  .cartao-data { color: var(--tinta-3); font-size: 0.78rem; }
+  .cartao-rodape a { color: var(--azul); font-size: 0.82rem; font-weight: 600; text-decoration: none; overflow-wrap: anywhere; }
+  .cartao-data { color: var(--tinta-3); font-size: 0.78rem; min-width: 0; flex: 1 1 140px; overflow-wrap: anywhere; }
+  .links-prazo { display: flex; flex-wrap: wrap; gap: 6px 14px; justify-content: flex-end; }
+  /* Nada de link comprido escapando do cartão: quebra em mais de uma linha. */
+  .cartao-noticia, .cartao-evento, .cartao-lateral, .painel-form, .painel-desempenho {
+    overflow-wrap: anywhere; word-break: break-word;
+  }
+  .cartao-noticia h3, .cartao-corpo, .cartao-corpo a, .trecho-original p, .o-que-fazer li { overflow-wrap: anywhere; }
 
   /* Cartões de prazos */
   .cartao-evento {
@@ -1194,6 +1200,6 @@
   </div>
 </section>
 
-<script type="module" src="app.js?v=20260926c"></script>
+<script type="module" src="app.js?v=20260926d"></script>
 </body>
 </html>
