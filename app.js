@@ -30,8 +30,8 @@ import {
   onMessage,
   isSupported,
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-messaging.js";
-import { lerPdfDoEnem } from "./leitor-pdf.js?v=20260924a";
-import * as DICAS from "./dicas-enem.js?v=20260924a";
+import { lerPdfDoEnem } from "./leitor-pdf.js?v=20260925a";
+import * as DICAS from "./dicas-enem.js?v=20260925a";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDuG755MrvWbhSRPaPtSuVM_K8QNNkopHU",
@@ -83,7 +83,7 @@ const $ = (id) => document.getElementById(id);
 // ---------------------------------------------------------------------------
 const TELAS = ["carregando", "login", "cadastro", "verificar-email", "app"];
 const PAGINAS = ["feed", "prazos", "desempenho", "inscricao", "ia", "config", "perfil"];
-const TITULOS = { feed: "Feed", prazos: "Prazos", desempenho: "Desempenho", inscricao: "Inscrição", ia: "IA de estudos", config: "Ajustes", perfil: "Perfil" };
+const TITULOS = { feed: "Feed", prazos: "Prazos", desempenho: "Desempenho", inscricao: "Inscrição", ia: "Student AI", config: "Ajustes", perfil: "Perfil" };
 
 // No celular quem rola é a área de conteúdo (a barra de abas fica fixa no fim
 // da tela do aparelho); no computador, a janela. Isso volta ao topo nos dois.
@@ -101,7 +101,27 @@ function mostrarTela(nome) {
   rolarPraCima();
 }
 
-function mostrarPagina(nome) {
+// Marca o app instalado (tela inicial) pra ele ganhar cara de aplicativo.
+function marcarSeInstalado() {
+  const instalado = window.matchMedia("(display-mode: standalone)").matches ||
+    window.matchMedia("(display-mode: fullscreen)").matches || navigator.standalone === true;
+  document.documentElement.classList.toggle("instalado", Boolean(instalado));
+}
+marcarSeInstalado();
+window.matchMedia("(display-mode: standalone)").addEventListener?.("change", marcarSeInstalado);
+
+// Botão voltar do celular: volta pra aba anterior em vez de fechar o app.
+window.addEventListener("popstate", (e) => {
+  const pagina = e.state?.pagina;
+  if (pagina && PAGINAS.includes(pagina) && !$("tela-app").classList.contains("oculto")) mostrarPagina(pagina, true);
+});
+
+function mostrarPagina(nome, semHistorico) {
+  if (!semHistorico) {
+    const estado = { pagina: nome };
+    if (!history.state?.pagina) history.replaceState(estado, "");
+    else if (history.state.pagina !== nome) history.pushState(estado, "");
+  }
   PAGINAS.forEach((p) => {
     const pag = $("pagina-" + p);
     if (pag) pag.classList.toggle("ativa", p === nome);
@@ -120,7 +140,7 @@ function mostrarPagina(nome) {
 let moduloIA = null;
 async function abrirIA() {
   try {
-    moduloIA = moduloIA || (await import("./ia.js?v=20260924a"));
+    moduloIA = moduloIA || (await import("./ia.js?v=20260925a"));
     moduloIA.abrirAbaIA();
   } catch (erro) {
     console.error("Não carreguei a aba IA:", erro);
