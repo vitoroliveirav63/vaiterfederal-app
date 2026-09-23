@@ -1,0 +1,8 @@
+[{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "io.github.vitoroliveirav63.twa",
+        "sha256_cert_fingerprints": ["F0:81:FD:23:B7:26:E7:56:E4:18:27:CF:FB:45:BB:78:A6:39:60:13:46:8C:FC:88:FE:D7:ED:8D:FC:A5:91:4E"]
+      }
+    }]
