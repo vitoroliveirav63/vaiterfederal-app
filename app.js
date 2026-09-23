@@ -30,8 +30,8 @@ import {
   onMessage,
   isSupported,
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-messaging.js";
-import { lerPdfDoEnem } from "./leitor-pdf.js?v=20260925c";
-import * as DICAS from "./dicas-enem.js?v=20260925c";
+import { lerPdfDoEnem } from "./leitor-pdf.js?v=20260925d";
+import * as DICAS from "./dicas-enem.js?v=20260925d";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDuG755MrvWbhSRPaPtSuVM_K8QNNkopHU",
@@ -140,7 +140,7 @@ function mostrarPagina(nome, semHistorico) {
 let moduloIA = null;
 async function abrirIA() {
   try {
-    moduloIA = moduloIA || (await import("./ia.js?v=20260925c"));
+    moduloIA = moduloIA || (await import("./ia.js?v=20260925d"));
     moduloIA.abrirAbaIA();
   } catch (erro) {
     console.error("Não carreguei a aba IA:", erro);
