@@ -30,8 +30,8 @@ import {
   onMessage,
   isSupported,
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-messaging.js";
-import { lerPdfDoEnem } from "./leitor-pdf.js?v=20260923b";
-import * as DICAS from "./dicas-enem.js?v=20260923b";
+import { lerPdfDoEnem } from "./leitor-pdf.js?v=20260924a";
+import * as DICAS from "./dicas-enem.js?v=20260924a";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDuG755MrvWbhSRPaPtSuVM_K8QNNkopHU",
@@ -85,12 +85,20 @@ const TELAS = ["carregando", "login", "cadastro", "verificar-email", "app"];
 const PAGINAS = ["feed", "prazos", "desempenho", "inscricao", "ia", "config", "perfil"];
 const TITULOS = { feed: "Feed", prazos: "Prazos", desempenho: "Desempenho", inscricao: "Inscrição", ia: "IA de estudos", config: "Ajustes", perfil: "Perfil" };
 
+// No celular quem rola é a área de conteúdo (a barra de abas fica fixa no fim
+// da tela do aparelho); no computador, a janela. Isso volta ao topo nos dois.
+function rolarPraCima() {
+  const area = document.querySelector(".area-principal");
+  if (area) area.scrollTop = 0;
+  window.scrollTo(0, 0);
+}
+
 function mostrarTela(nome) {
   TELAS.forEach((t) => {
     const el = $("tela-" + t);
     if (el) el.classList.toggle("oculto", t !== nome);
   });
-  window.scrollTo(0, 0);
+  rolarPraCima();
 }
 
 function mostrarPagina(nome) {
@@ -102,7 +110,7 @@ function mostrarPagina(nome) {
   });
   document.title = `${TITULOS[nome] || "Início"} · Vai ter federal, sim!`;
   fecharMenuPerfil();
-  window.scrollTo(0, 0);
+  rolarPraCima();
   if (nome === "config") carregarConfig();
   if (nome === "inscricao") mostrarSubaba(subabaAtual || (todasInscricoes.length ? "acompanhamento" : "cadastro"));
   if (nome === "ia") abrirIA();
@@ -112,7 +120,7 @@ function mostrarPagina(nome) {
 let moduloIA = null;
 async function abrirIA() {
   try {
-    moduloIA = moduloIA || (await import("./ia.js?v=20260923b"));
+    moduloIA = moduloIA || (await import("./ia.js?v=20260924a"));
     moduloIA.abrirAbaIA();
   } catch (erro) {
     console.error("Não carreguei a aba IA:", erro);
@@ -1966,6 +1974,7 @@ async function registrarPush(user) {
         registration.showNotification(titulo, {
           body: d.corpo || payload.notification?.body || "",
           icon: "icon-192.png",
+          badge: "badge-96.png",
           tag: d.tag || undefined,
           data: { url: d.url || location.href },
         });
