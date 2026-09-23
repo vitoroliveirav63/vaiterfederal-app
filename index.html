@@ -253,8 +253,10 @@
   /* Deslizar o dedo pro lado troca de aba; a página entra pelo lado certo. */
   @keyframes desliza-da-direita { from { opacity: 0.4; transform: translateX(26%); } to { opacity: 1; transform: none; } }
   @keyframes desliza-da-esquerda { from { opacity: 0.4; transform: translateX(-26%); } to { opacity: 1; transform: none; } }
-  .pagina.ativa.veio-da-direita { animation: desliza-da-direita 0.22s ease-out; }
-  .pagina.ativa.veio-da-esquerda { animation: desliza-da-esquerda 0.22s ease-out; }
+  .pagina.ativa.veio-da-direita,
+  html.instalado .pagina.ativa.veio-da-direita { animation: desliza-da-direita 0.22s ease-out; }
+  .pagina.ativa.veio-da-esquerda,
+  html.instalado .pagina.ativa.veio-da-esquerda { animation: desliza-da-esquerda 0.22s ease-out; }
   .arrastando { transition: none; }
   @media (prefers-reduced-motion: reduce) { .pagina.ativa.veio-da-direita, .pagina.ativa.veio-da-esquerda { animation: none; } }
   html.instalado .pagina.ativa { animation: entrar-pagina 0.18s ease-out; }
@@ -331,7 +333,12 @@
     .painel-direito {
       display: block; width: 310px; flex-shrink: 0;
       position: sticky; top: 76px; padding-top: 32px;
+      max-height: calc(100vh - 88px); overflow-y: auto; overscroll-behavior: contain;
+      scrollbar-width: thin; scrollbar-color: var(--borda) transparent;
     }
+    .painel-direito::-webkit-scrollbar { width: 8px; }
+    .painel-direito::-webkit-scrollbar-thumb { background: var(--borda); border-radius: 99px; }
+    .painel-direito::-webkit-scrollbar-track { background: transparent; }
   }
   .cartao-lateral {
     background: var(--cartao); border: 1px solid var(--borda);
@@ -533,8 +540,16 @@
   /* Instagram no celular (no computador fica no painel da direita) */
   .instagram-celular { margin-top: 16px; }
   /* Atalhos no topo do Feed — só onde não existe a coluna da direita. */
-  .atalhos-topo { display: none; padding-bottom: 14px; }
+  .atalhos-topo { display: none; padding: 12px 16px; margin-bottom: 14px; }
   @media (max-width: 1199px) { .atalhos-topo { display: block; } }
+  .atalhos-topo > summary {
+    cursor: pointer; list-style: none; font-size: 0.82rem; font-weight: 700; color: var(--marinho);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .atalhos-topo > summary::-webkit-details-marker { display: none; }
+  .atalhos-topo > summary::after { content: "▾"; margin-left: auto; color: var(--tinta-3); font-size: 0.9rem; }
+  .atalhos-topo[open] > summary::after { content: "▴"; }
+  .atalhos-topo > summary span { font-weight: 400; font-size: 0.76rem; color: var(--tinta-3); }
   .atalhos-rotulo { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--tinta-3); margin: 10px 0 6px; }
   .atalhos-rotulo:first-of-type { margin-top: 2px; }
   .atalhos-linha { display: flex; flex-wrap: wrap; gap: 7px; }
@@ -836,8 +851,8 @@
             <h1>Feed</h1>
             <p>Tudo que mudou nos sites da UFC e do IFCE, em um lugar só.</p>
           </div>
-          <div class="cartao-lateral atalhos-topo">
-            <h3>Links rápidos</h3>
+          <details class="cartao-lateral atalhos-topo">
+            <summary>Links rápidos <span>Instagram e sites oficiais</span></summary>
             <p class="atalhos-rotulo">Instagram</p>
             <div class="atalhos-linha">
               <a href="https://www.instagram.com/ufcinforma/" target="_blank" rel="noopener">UFC</a>
@@ -852,7 +867,7 @@
               <a href="https://sisu.ufc.br/pt/" target="_blank" rel="noopener">Sisu na UFC</a>
               <a href="https://portal.ifce.edu.br/campus/fortaleza/" target="_blank" rel="noopener">IFCE Fortaleza</a>
             </div>
-          </div>
+          </details>
           <div class="chips">
             <button class="chip chip-ativo" data-filtro="todos" type="button">Tudo</button>
             <button class="chip" data-filtro="UFC" type="button">UFC</button>
@@ -1179,6 +1194,6 @@
   </div>
 </section>
 
-<script type="module" src="app.js?v=20260926b"></script>
+<script type="module" src="app.js?v=20260926c"></script>
 </body>
 </html>
