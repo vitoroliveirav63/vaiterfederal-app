@@ -30,8 +30,8 @@ import {
   onMessage,
   isSupported,
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-messaging.js";
-import { lerPdfDoEnem } from "./leitor-pdf.js?v=20260926d";
-import * as DICAS from "./dicas-enem.js?v=20260926d";
+import { lerPdfDoEnem } from "./leitor-pdf.js?v=20260927b";
+import * as DICAS from "./dicas-enem.js?v=20260927b";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDuG755MrvWbhSRPaPtSuVM_K8QNNkopHU",
@@ -151,7 +151,7 @@ function mostrarPagina(nome, semHistorico) {
 let moduloIA = null;
 async function abrirIA() {
   try {
-    moduloIA = moduloIA || (await import("./ia.js?v=20260926d"));
+    moduloIA = moduloIA || (await import("./ia.js?v=20260927b"));
     moduloIA.abrirAbaIA();
   } catch (erro) {
     console.error("Não carreguei a aba IA:", erro);
@@ -365,6 +365,119 @@ $("btn-logout").addEventListener("click", () => signOut(auth));
 $("btn-logout-config").addEventListener("click", () => signOut(auth));
 
 // ---------------------------------------------------------------------------
+// Sino de avisos (notificações que o robô mandou)
+// ---------------------------------------------------------------------------
+let avisos = [];
+let mostrandoAvisosLidos = false;
+
+function refAvisos() {
+  const user = auth.currentUser;
+  return user ? collection(db, "usuarios", user.uid, "notificacoes") : null;
+}
+
+function naoLidos() {
+  return avisos.filter((n) => !n.lida);
+}
+
+function abrirMenuAvisos() {
+  $("menu-avisos").classList.remove("oculto");
+  $("btn-sino").setAttribute("aria-expanded", "true");
+  renderizarAvisos();
+}
+function fecharMenuAvisos() {
+  $("menu-avisos").classList.add("oculto");
+  $("btn-sino").setAttribute("aria-expanded", "false");
+}
+
+function dataDoAviso(n) {
+  const d = n.criadoEm?.toDate ? n.criadoEm.toDate() : null;
+  if (!d) return "";
+  const minutos = Math.round((Date.now() - d.getTime()) / 60000);
+  if (minutos < 1) return "agora";
+  if (minutos < 60) return `há ${minutos} min`;
+  if (minutos < 60 * 24) return `há ${Math.round(minutos / 60)} h`;
+  return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+}
+
+function renderizarSino() {
+  const quantos = naoLidos().length;
+  const bolinha = $("sino-contagem");
+  if (!bolinha) return;
+  bolinha.textContent = quantos > 99 ? "99+" : String(quantos);
+  bolinha.classList.toggle("oculto", quantos === 0);
+  $("btn-sino").setAttribute("aria-label", quantos ? `Abrir avisos (${quantos} novo${quantos === 1 ? "" : "s"})` : "Abrir avisos");
+}
+
+function renderizarAvisos() {
+  const alvo = $("avisos-lista");
+  if (!alvo) return;
+  const lista = mostrandoAvisosLidos ? avisos : naoLidos();
+  $("avisos-ver-lidos").textContent = mostrandoAvisosLidos ? "Mostrar só os novos" : "Mostrar os já vistos";
+  $("avisos-marcar-todos").classList.toggle("oculto", naoLidos().length === 0);
+  if (!lista.length) {
+    alvo.innerHTML = `<p class="avisos-vazio">${mostrandoAvisosLidos ? "Nenhum aviso por aqui." : "Nenhum aviso novo. 🎉"}</p>`;
+    return;
+  }
+  alvo.innerHTML = lista.map((n) => `
+    <div class="aviso-item ${n.lida ? "" : "nao-lido"}">
+      <button class="aviso-texto" type="button" data-abrir-aviso="${escapeHtml(n.id)}">
+        <b>${escapeHtml(n.titulo || "Aviso")}</b>
+        <span>${escapeHtml(n.corpo || "")}</span>
+        <small>${escapeHtml(dataDoAviso(n))}</small>
+      </button>
+      <div class="aviso-acoes">
+        ${n.lida ? "" : `<button type="button" data-visto="${escapeHtml(n.id)}" title="Marcar como visto" aria-label="Marcar como visto">✓</button>`}
+        <button type="button" data-apagar-aviso="${escapeHtml(n.id)}" title="Excluir" aria-label="Excluir">🗑️</button>
+      </div>
+    </div>`).join("");
+
+  alvo.querySelectorAll("[data-visto]").forEach((b) => b.addEventListener("click", (e) => { e.stopPropagation(); marcarAvisoLido(b.dataset.visto); }));
+  alvo.querySelectorAll("[data-apagar-aviso]").forEach((b) => b.addEventListener("click", (e) => { e.stopPropagation(); apagarAviso(b.dataset.apagarAviso); }));
+  alvo.querySelectorAll("[data-abrir-aviso]").forEach((b) => b.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const n = avisos.find((x) => x.id === b.dataset.abrirAviso);
+    marcarAvisoLido(b.dataset.abrirAviso);
+    fecharMenuAvisos();
+    mostrarPagina(n?.prazoId || /prazo|lembrete|urgente/.test(n?.tipo || "") ? "prazos" : "feed");
+  }));
+}
+
+async function marcarAvisoLido(id) {
+  const ref = refAvisos();
+  if (!ref) return;
+  try {
+    await updateDoc(doc(ref, id), { lida: true, lidaEm: serverTimestamp() });
+  } catch (e) {
+    console.warn("Não marquei o aviso:", e);
+  }
+}
+
+async function marcarTodosOsAvisos() {
+  for (const n of naoLidos()) await marcarAvisoLido(n.id);
+}
+
+async function apagarAviso(id) {
+  const ref = refAvisos();
+  if (!ref) return;
+  try {
+    await deleteDoc(doc(ref, id));
+  } catch (e) {
+    console.warn("Não apaguei o aviso:", e);
+  }
+}
+
+$("btn-sino").addEventListener("click", (e) => {
+  e.stopPropagation();
+  fecharMenuPerfil();
+  if ($("menu-avisos").classList.contains("oculto")) abrirMenuAvisos();
+  else fecharMenuAvisos();
+});
+$("avisos-marcar-todos").addEventListener("click", (e) => { e.stopPropagation(); marcarTodosOsAvisos(); });
+$("avisos-ver-lidos").addEventListener("click", (e) => { e.stopPropagation(); mostrandoAvisosLidos = !mostrandoAvisosLidos; renderizarAvisos(); });
+document.addEventListener("click", (e) => { if (!e.target.closest(".menu-sino")) fecharMenuAvisos(); });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") fecharMenuAvisos(); });
+
+// ---------------------------------------------------------------------------
 // Menu do perfil (avatar no canto superior)
 // ---------------------------------------------------------------------------
 function abrirMenuPerfil() {
@@ -373,6 +486,7 @@ function abrirMenuPerfil() {
 }
 function fecharMenuPerfil() {
   $("menu-perfil").classList.add("oculto");
+  
   $("btn-avatar").setAttribute("aria-expanded", "false");
 }
 $("btn-avatar").addEventListener("click", (e) => {
@@ -447,6 +561,11 @@ function entrarNoApp() {
   escutar("feed", query(collection(db, "noticias"), orderBy("atualizadoEm", "desc"), limit(250)), (snap) => {
     ultimosItensFeed = snap.docs.map((d) => d.data());
     renderizarFeed();
+  });
+  escutar("avisos", query(collection(db, "usuarios", user.uid, "notificacoes"), orderBy("criadoEm", "desc"), limit(60)), (snap) => {
+    avisos = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    renderizarSino();
+    if (!$("menu-avisos").classList.contains("oculto")) renderizarAvisos();
   });
   escutar("inscricoes", collection(db, "usuarios", user.uid, "inscricoes"), (snap) => {
     todasInscricoes = snap.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => b.ano - a.ano);
