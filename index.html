@@ -6,8 +6,9 @@
 <title>Vai ter federal, sim!</title>
 <meta name="theme-color" content="#12386E" />
 <link rel="manifest" href="manifest.json" />
-<link rel="icon" href="icon-192.png" />
-<link rel="apple-touch-icon" href="icon-192.png" />
+<link rel="icon" href="logo.svg" type="image/svg+xml" />
+<link rel="icon" href="favicon-32.png" sizes="32x32" type="image/png" />
+<link rel="apple-touch-icon" href="apple-touch-icon.png" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="default" />
@@ -60,11 +61,12 @@
   /* ------------------------------------------------------------------ */
   /* Telas cheias: carregando, login, cadastro, confirmar e-mail         */
   /* ------------------------------------------------------------------ */
+  .login-logo { width: 84px; height: 84px; border-radius: 20px; display: block; margin: 0 0 18px; box-shadow: 0 10px 28px rgba(18,56,110,0.22); }
   .tela-cheia {
     max-width: 420px;
     margin: 0 auto;
     padding: 48px 20px 56px;
-    min-height: 100vh;
+    min-height: 100vh; min-height: 100dvh;
   }
   @media (min-width: 820px) {
     .tela-cheia { max-width: 460px; padding: 72px 24px; }
@@ -155,13 +157,30 @@
   }
   .carregando-caixa {
     display: flex; align-items: center; justify-content: center;
-    min-height: 100vh; color: var(--tinta-3); font-size: 0.92rem;
+    min-height: 100vh; min-height: 100dvh; color: var(--tinta-3); font-size: 0.92rem;
   }
 
   /* ------------------------------------------------------------------ */
   /* Painel principal                                                    */
   /* ------------------------------------------------------------------ */
   #tela-app { min-height: 100vh; padding-bottom: var(--altura-tabs); }
+
+  /* Celular: o app ocupa exatamente a altura da tela do aparelho e a barra de
+     abas fica sempre visível. Quem rola é só o conteúdo, então a barra não
+     some nem "estica" quando o navegador esconde/mostra a barra de endereço.
+     (100dvh = altura real da tela; env(safe-area…) = área do gesto do iPhone.) */
+  @media (max-width: 819px) {
+    html, body { height: 100%; overflow: hidden; overscroll-behavior: none; }
+    #tela-app {
+      display: flex; flex-direction: column-reverse;
+      height: 100vh; height: 100dvh;
+      min-height: 0; padding-bottom: 0;
+    }
+    #tela-app.oculto { display: none !important; }
+    .area-principal { flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
+    /* Telas de login/carregando continuam rolando normalmente. */
+    body:has(#tela-app.oculto) { overflow: auto; }
+  }
   @media (min-width: 820px) {
     #tela-app { display: flex; padding-bottom: 0; }
   }
@@ -171,6 +190,7 @@
     position: fixed; bottom: 0; left: 0; right: 0;
     height: var(--altura-tabs);
     display: flex;
+    flex-shrink: 0;
     background: var(--cartao);
     border-top: 1px solid var(--borda);
     z-index: 10;
@@ -184,6 +204,14 @@
   .barra-lateral button .icone-nav { font-size: 1.2rem; }
   .barra-lateral button.nav-ativo { color: var(--marinho); font-weight: 600; }
   @media (max-width: 400px) { .barra-lateral button { font-size: 0.6rem; padding: 4px 1px; } }
+  @media (max-width: 819px) {
+    /* Na tela do celular a barra fica no fim do app (não mais "colada" por
+       cima), com folga pra faixa de gestos do aparelho. */
+    .barra-lateral {
+      position: static; height: auto; min-height: var(--altura-tabs);
+      padding-bottom: env(safe-area-inset-bottom, 0px);
+    }
+  }
   .marca { display: none; }
 
   @media (min-width: 820px) {
@@ -200,7 +228,10 @@
       display: block; color: #fff; font-weight: 700;
       font-size: 0.98rem; line-height: 1.25; padding: 0 10px 26px;
     }
-    .marca span { display: block; font-weight: 400; font-size: 0.72rem; opacity: 0.7; margin-top: 2px; }
+    .marca { display: flex; align-items: center; gap: 11px; }
+    .marca-logo { width: 40px; height: 40px; border-radius: 10px; box-shadow: 0 0 0 1px rgba(255,255,255,0.18); flex-shrink: 0; }
+    .marca > div { font-size: 0.8rem; font-weight: 600; line-height: 1.1; }
+    .marca span { display: block; font-weight: 800; font-size: 1.25rem; color: #FFB020; margin-top: 1px; letter-spacing: -0.01em; }
     .barra-lateral button {
       flex: none; flex-direction: row; justify-content: flex-start;
       gap: 11px; font-size: 0.88rem; padding: 10px 12px;
@@ -224,6 +255,8 @@
   }
   .topo-titulo { font-size: 0.95rem; font-weight: 700; color: var(--marinho); }
   .topo-titulo span { display: none; }
+  .topo-titulo b { display: inline-flex; align-items: center; gap: 8px; }
+  .topo-logo { width: 28px; height: 28px; border-radius: 7px; }
   @media (min-width: 820px) {
     .barra-topo { padding: 12px 44px; }
     .topo-titulo { color: var(--tinta-2); font-weight: 600; font-size: 0.86rem; }
@@ -660,6 +693,7 @@
 
 <!-- Login -->
 <section id="tela-login" class="tela-cheia oculto">
+  <img src="logo.svg" alt="" class="login-logo" />
   <h1>Vai ter federal, sim!</h1>
   <p class="subtitulo">Prazos e notícias do Enem, Sisu, UFC e IFCE, tudo num lugar só.</p>
   <div class="cartao-auth">
@@ -715,7 +749,7 @@
 <!-- App (depois de logado) -->
 <section id="tela-app" class="oculto">
   <nav class="barra-lateral" aria-label="Navegação principal">
-    <div class="marca">Vai ter federal<span>sim!</span></div>
+    <div class="marca"><img src="logo.svg" alt="" class="marca-logo" /><div>Vai ter federal,<span>sim!</span></div></div>
     <button id="nav-feed" type="button"><span class="icone-nav">📰</span><span>Feed</span></button>
     <button id="nav-prazos" type="button"><span class="icone-nav">📅</span><span>Prazos</span></button>
     <button id="nav-desempenho" type="button"><span class="icone-nav">📊</span><span>Desempenho</span></button>
@@ -726,7 +760,7 @@
 
   <div class="area-principal">
     <header class="barra-topo">
-      <div class="topo-titulo"><b>Vai ter federal, sim!</b><span id="topo-titulo">Olá!</span></div>
+      <div class="topo-titulo"><b><img src="logo.svg" alt="" class="topo-logo" />Vai ter federal, sim!</b><span id="topo-titulo">Olá!</span></div>
       <div class="menu-perfil">
         <button id="btn-avatar" class="avatar" type="button" aria-haspopup="menu" aria-expanded="false" aria-label="Abrir menu do perfil">?</button>
         <div id="menu-perfil" class="menu-suspenso oculto" role="menu">
@@ -1078,6 +1112,6 @@
   </div>
 </section>
 
-<script type="module" src="app.js?v=20260923b"></script>
+<script type="module" src="app.js?v=20260924a"></script>
 </body>
 </html>
