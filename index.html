@@ -203,6 +203,7 @@
   }
   .barra-lateral button .icone-nav { font-size: 1.2rem; }
   .barra-lateral button.nav-ativo { color: var(--marinho); font-weight: 600; }
+  .barra-lateral button > span:last-child { line-height: 1.05; }
   @media (max-width: 400px) { .barra-lateral button { font-size: 0.6rem; padding: 4px 1px; } }
   @media (max-width: 819px) {
     /* Na tela do celular a barra fica no fim do app (não mais "colada" por
@@ -243,6 +244,23 @@
   }
 
   .area-principal { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+
+  /* Quando o app está instalado (tela inicial do celular), ele ganha cara de
+     aplicativo: abas maiores, topo mais enxuto e uma transição ao trocar de aba.
+     No navegador nada disso muda. */
+  @keyframes entrar-pagina { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+  html.instalado .pagina.ativa { animation: entrar-pagina 0.18s ease-out; }
+  @media (max-width: 819px) {
+    html.instalado { --altura-tabs: 74px; }
+    html.instalado .barra-lateral button { font-size: 0.68rem; gap: 5px; }
+    html.instalado .barra-lateral button .icone-nav { font-size: 1.45rem; }
+    html.instalado .barra-lateral button.nav-ativo .icone-nav { transform: translateY(-1px); }
+    html.instalado .barra-topo { padding: 8px 16px; }
+    html.instalado .topo-titulo b { font-size: 0.82rem; }
+    html.instalado .topo-logo { width: 24px; height: 24px; }
+    html.instalado .conteudo-principal { padding-top: 16px; }
+  }
+  @media (prefers-reduced-motion: reduce) { html.instalado .pagina.ativa { animation: none; } }
 
   /* Barra superior com o avatar */
   .barra-topo {
@@ -565,7 +583,23 @@
   /* Aba IA */
   .ia-config { border-color: #F2C98E; background: #FFFBF4; margin-bottom: 14px; }
   .ia-config h3 { margin: 0 0 6px; font-size: 1rem; }
-  .ia-cabecalho-conversa { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin: 10px 0 8px; font-size: 0.84rem; }
+  .ia-barra-conversa { display: flex; align-items: center; gap: 8px; margin: 12px 0 8px; }
+  .ia-botao-lista { background: var(--cartao); border: 1px solid var(--borda); border-radius: 10px; padding: 7px 11px; font-family: inherit; font-size: 0.82rem; font-weight: 600; color: var(--marinho); cursor: pointer; flex-shrink: 0; }
+  .ia-botao-lista:hover { background: var(--cartao-2); }
+  .ia-titulo-conversa { flex: 1; min-width: 0; background: none; border: none; font-family: inherit; font-size: 0.9rem; font-weight: 600; color: var(--tinta); text-align: left; cursor: pointer; padding: 6px 4px; border-radius: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ia-titulo-conversa:hover { background: var(--cartao-2); }
+  .ia-dica-conversa { font-size: 0.82rem; margin: 0 0 8px; }
+  .ia-lista { background: var(--cartao); border: 1px solid var(--borda); border-radius: var(--raio); padding: 12px; margin-bottom: 10px; }
+  .ia-lista-abas { margin-bottom: 8px; }
+  .ia-lista-item { display: flex; align-items: center; gap: 6px; padding: 7px 4px; border-bottom: 1px solid var(--borda); }
+  .ia-lista-item:last-child { border-bottom: none; }
+  .ia-lista-abrir { flex: 1; min-width: 0; background: none; border: none; text-align: left; font-family: inherit; cursor: pointer; padding: 2px; color: var(--tinta); }
+  .ia-lista-abrir b { display: block; font-size: 0.88rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ia-lista-abrir small { color: var(--tinta-3); font-size: 0.74rem; }
+  .ia-lista-item.ativa { background: var(--azul-suave); border-radius: 8px; }
+  .ia-acao { background: none; border: none; cursor: pointer; font-size: 0.95rem; padding: 4px 5px; border-radius: 7px; line-height: 1; }
+  .ia-acao:hover { background: var(--cartao-2); }
+  .ia-lista-vazia { color: var(--tinta-3); font-size: 0.86rem; padding: 10px 4px; }
   .ia-conversa { background: var(--cartao); border: 1px solid var(--borda); border-radius: var(--raio); padding: 14px; min-height: 220px; max-height: 60vh; overflow-y: auto; }
   .ia-vazio { color: var(--tinta-3); font-size: 0.9rem; text-align: center; padding: 40px 10px; }
   .ia-msg { margin-bottom: 14px; }
@@ -754,7 +788,7 @@
     <button id="nav-prazos" type="button"><span class="icone-nav">📅</span><span>Prazos</span></button>
     <button id="nav-desempenho" type="button"><span class="icone-nav">📊</span><span>Desempenho</span></button>
     <button id="nav-inscricao" type="button"><span class="icone-nav">📝</span><span>Inscrição</span></button>
-    <button id="nav-ia" type="button"><span class="icone-nav">🤖</span><span>IA</span></button>
+    <button id="nav-ia" type="button"><span class="icone-nav">💡</span><span>Student AI</span></button>
     <button id="nav-config" type="button"><span class="icone-nav">⚙️</span><span>Ajustes</span></button>
   </nav>
 
@@ -940,12 +974,12 @@
         <!-- IA de estudos -->
         <section id="pagina-ia" class="pagina">
           <div class="cabecalho-pagina">
-            <h1>IA de estudos</h1>
+            <h1>Student AI</h1>
             <p>Tire dúvidas de questões do Enem e corrija redações pela grade oficial do Inep.</p>
           </div>
 
           <div id="ia-config" class="painel-form ia-config oculto">
-            <h3>Falta ativar a IA (uma vez só)</h3>
+            <h3>Falta ativar a Student AI (uma vez só)</h3>
             <p class="texto-suave">A IA usa o Gemini pelo Firebase, no plano gratuito. O Firebase exige uma proteção (App Check) pra ninguém usar a sua cota. O passo a passo foi enviado no chat; depois é só colar a chave no arquivo <code>ia.js</code>.</p>
           </div>
 
@@ -955,10 +989,19 @@
           </div>
 
           <div id="ia-painel-duvidas">
-            <div class="ia-cabecalho-conversa">
-              <span class="texto-suave">Mande o enunciado ou anexe a questão (foto, print, PDF, Word…). Pode continuar perguntando em cima da resposta.</span>
-              <button id="ia-nova-conversa" class="link-lateral" type="button">Nova conversa</button>
+            <div class="ia-barra-conversa">
+              <button id="ia-abrir-lista" class="ia-botao-lista" type="button" aria-expanded="false">☰ Conversas</button>
+              <button id="ia-titulo-conversa" class="ia-titulo-conversa" type="button" title="Clique para renomear">Nova conversa</button>
+              <button id="ia-nova-conversa" class="ia-botao-lista" type="button">+ Nova</button>
             </div>
+            <div id="ia-lista-conversas" class="ia-lista oculto">
+              <div class="abas-internas ia-lista-abas" role="tablist">
+                <button id="ia-lista-ativas" type="button" class="aba-ativa">Conversas</button>
+                <button id="ia-lista-arquivadas" type="button">Arquivadas</button>
+              </div>
+              <div id="ia-lista-itens"></div>
+            </div>
+            <p class="texto-suave ia-dica-conversa">Mande o enunciado ou anexe a questão (foto, print, PDF, Word…). Pode continuar perguntando em cima da resposta.</p>
             <div id="ia-conversa" class="ia-conversa" aria-live="polite"></div>
             <form id="ia-form-duvida" class="ia-form-duvida">
               <div id="ia-duvida-previas" class="ia-previas"></div>
@@ -968,10 +1011,6 @@
                 <button id="ia-duvida-enviar" class="botao" type="submit">Perguntar</button>
               </div>
             </form>
-            <details class="ia-historico">
-              <summary>Dúvidas anteriores</summary>
-              <div id="ia-duvidas-historico"></div>
-            </details>
           </div>
 
           <div id="ia-painel-redacao" class="oculto">
@@ -1112,6 +1151,6 @@
   </div>
 </section>
 
-<script type="module" src="app.js?v=20260924a"></script>
+<script type="module" src="app.js?v=20260925a"></script>
 </body>
 </html>
