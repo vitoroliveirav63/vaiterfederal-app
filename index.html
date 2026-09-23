@@ -177,7 +177,8 @@
       min-height: 0; padding-bottom: 0;
     }
     #tela-app.oculto { display: none !important; }
-    .area-principal { flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
+    .area-principal { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
+    #tela-app, .conteudo-principal { max-width: 100vw; overflow-x: hidden; }
     /* Telas de login/carregando continuam rolando normalmente. */
     body:has(#tela-app.oculto) { overflow: auto; }
   }
@@ -249,6 +250,13 @@
      aplicativo: abas maiores, topo mais enxuto e uma transição ao trocar de aba.
      No navegador nada disso muda. */
   @keyframes entrar-pagina { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+  /* Deslizar o dedo pro lado troca de aba; a página entra pelo lado certo. */
+  @keyframes desliza-da-direita { from { opacity: 0.4; transform: translateX(26%); } to { opacity: 1; transform: none; } }
+  @keyframes desliza-da-esquerda { from { opacity: 0.4; transform: translateX(-26%); } to { opacity: 1; transform: none; } }
+  .pagina.ativa.veio-da-direita { animation: desliza-da-direita 0.22s ease-out; }
+  .pagina.ativa.veio-da-esquerda { animation: desliza-da-esquerda 0.22s ease-out; }
+  .arrastando { transition: none; }
+  @media (prefers-reduced-motion: reduce) { .pagina.ativa.veio-da-direita, .pagina.ativa.veio-da-esquerda { animation: none; } }
   html.instalado .pagina.ativa { animation: entrar-pagina 0.18s ease-out; }
   @media (max-width: 819px) {
     html.instalado { --altura-tabs: 74px; }
@@ -524,7 +532,17 @@
 
   /* Instagram no celular (no computador fica no painel da direita) */
   .instagram-celular { margin-top: 16px; }
-  @media (min-width: 1200px) { .instagram-celular { display: none; } }
+  /* Atalhos no topo do Feed — só onde não existe a coluna da direita. */
+  .atalhos-topo { display: none; padding-bottom: 14px; }
+  @media (max-width: 1199px) { .atalhos-topo { display: block; } }
+  .atalhos-rotulo { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--tinta-3); margin: 10px 0 6px; }
+  .atalhos-rotulo:first-of-type { margin-top: 2px; }
+  .atalhos-linha { display: flex; flex-wrap: wrap; gap: 7px; }
+  .atalhos-linha a {
+    display: inline-block; padding: 7px 11px; border: 1px solid var(--borda); border-radius: 999px;
+    background: var(--cartao-2); color: var(--marinho); font-size: 0.8rem; font-weight: 600; text-decoration: none;
+  }
+  .atalhos-linha a:active { background: var(--azul-suave); }
 
   /* Painel "Seu desempenho" */
   .painel-desempenho { background: var(--cartao); border: 1px solid var(--borda); border-radius: var(--raio); padding: 18px 20px; margin-bottom: 18px; }
@@ -818,19 +836,29 @@
             <h1>Feed</h1>
             <p>Tudo que mudou nos sites da UFC e do IFCE, em um lugar só.</p>
           </div>
+          <div class="cartao-lateral atalhos-topo">
+            <h3>Links rápidos</h3>
+            <p class="atalhos-rotulo">Instagram</p>
+            <div class="atalhos-linha">
+              <a href="https://www.instagram.com/ufcinforma/" target="_blank" rel="noopener">UFC</a>
+              <a href="https://www.instagram.com/ifceoficial/" target="_blank" rel="noopener">IFCE</a>
+              <a href="https://www.instagram.com/ifcefortalezaoficial/" target="_blank" rel="noopener">IFCE Fortaleza</a>
+              <a href="https://www.instagram.com/inep_oficial/" target="_blank" rel="noopener">Inep</a>
+            </div>
+            <p class="atalhos-rotulo">Sites oficiais</p>
+            <div class="atalhos-linha">
+              <a href="https://enem.inep.gov.br/participante/" target="_blank" rel="noopener">Participante (Enem)</a>
+              <a href="https://acessounico.mec.gov.br/sisu" target="_blank" rel="noopener">Portal do Sisu</a>
+              <a href="https://sisu.ufc.br/pt/" target="_blank" rel="noopener">Sisu na UFC</a>
+              <a href="https://portal.ifce.edu.br/campus/fortaleza/" target="_blank" rel="noopener">IFCE Fortaleza</a>
+            </div>
+          </div>
           <div class="chips">
             <button class="chip chip-ativo" data-filtro="todos" type="button">Tudo</button>
             <button class="chip" data-filtro="UFC" type="button">UFC</button>
             <button class="chip" data-filtro="IFCE" type="button">IFCE</button>
           </div>
           <div id="feed-lista"></div>
-          <div class="cartao-lateral links-oficiais instagram-celular">
-            <h3>No Instagram</h3>
-          <a href="https://www.instagram.com/ufcinforma/" target="_blank" rel="noopener">UFC · @ufcinforma <span>↗</span></a>
-          <a href="https://www.instagram.com/ifceoficial/" target="_blank" rel="noopener">IFCE · @ifceoficial <span>↗</span></a>
-          <a href="https://www.instagram.com/ifcefortalezaoficial/" target="_blank" rel="noopener">IFCE Fortaleza · @ifcefortalezaoficial <span>↗</span></a>
-          <a href="https://www.instagram.com/inep_oficial/" target="_blank" rel="noopener">Inep (Enem) · @inep_oficial <span>↗</span></a>
-          </div>
         </section>
 
         <!-- Desempenho -->
@@ -1151,6 +1179,6 @@
   </div>
 </section>
 
-<script type="module" src="app.js?v=20260925d"></script>
+<script type="module" src="app.js?v=20260926b"></script>
 </body>
 </html>
