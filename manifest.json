@@ -1,11 +1,25 @@
 {
+  "id": "/vaiterfederal-app/",
   "name": "Vai ter federal, sim!",
   "short_name": "Vai ter federal",
-  "start_url": ".",
-  "scope": ".",
+  "description": "Prazos e notícias do Enem, Sisu, UFC e IFCE em um lugar só, com aviso no celular e no e-mail antes de cada data — e a Student AI pra tirar dúvidas e corrigir redação.",
+  "lang": "pt-BR",
+  "dir": "ltr",
+  "start_url": "/vaiterfederal-app/",
+  "scope": "/vaiterfederal-app/",
   "display": "standalone",
+  "display_override": [
+    "standalone",
+    "minimal-ui"
+  ],
+  "orientation": "portrait",
   "background_color": "#FBF4EF",
   "theme_color": "#12386E",
+  "categories": [
+    "education",
+    "productivity",
+    "utilities"
+  ],
   "icons": [
     {
       "src": "icon-192.png",
@@ -37,5 +51,53 @@
       "type": "image/svg+xml",
       "purpose": "any"
     }
-  ]
+  ],
+  "screenshots": [
+    {
+      "src": "tela-1-feed.png",
+      "sizes": "1080x2340",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Feed com o que mudou nos sites da UFC e do IFCE"
+    },
+    {
+      "src": "tela-2-prazos.png",
+      "sizes": "1080x2340",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Prazos com o que fazer em cada data"
+    },
+    {
+      "src": "tela-3-desempenho.png",
+      "sizes": "1080x2340",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Desempenho no Enem e onde focar os estudos"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Prazos",
+      "short_name": "Prazos",
+      "url": "/vaiterfederal-app/?abrir=prazos",
+      "icons": [
+        {
+          "src": "icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Student AI",
+      "short_name": "Student AI",
+      "url": "/vaiterfederal-app/?abrir=ia",
+      "icons": [
+        {
+          "src": "icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    }
+  ],
+  "prefer_related_applications": false
 }
