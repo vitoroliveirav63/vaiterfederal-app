@@ -257,9 +257,10 @@
   html.instalado .pagina.ativa.veio-da-direita { animation: desliza-da-direita 0.22s ease-out; }
   .pagina.ativa.veio-da-esquerda,
   html.instalado .pagina.ativa.veio-da-esquerda { animation: desliza-da-esquerda 0.22s ease-out; }
+  .pagina { transition: transform 0.18s ease-out; }
   .arrastando { transition: none; }
   @media (prefers-reduced-motion: reduce) { .pagina.ativa.veio-da-direita, .pagina.ativa.veio-da-esquerda { animation: none; } }
-  html.instalado .pagina.ativa { animation: entrar-pagina 0.18s ease-out; }
+  html.instalado .pagina.ativa:not(.veio-da-direita):not(.veio-da-esquerda) { animation: entrar-pagina 0.18s ease-out; }
   @media (max-width: 819px) {
     html.instalado { --altura-tabs: 74px; }
     html.instalado .barra-lateral button { font-size: 0.68rem; gap: 5px; }
