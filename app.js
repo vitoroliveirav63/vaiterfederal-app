@@ -117,6 +117,18 @@ window.addEventListener("popstate", (e) => {
 });
 
 function mostrarPagina(nome, semHistorico) {
+  // A direção do deslize é marcada ANTES de a página aparecer, pra ela já
+  // nascer com a animação certa (sem piscar nem subir).
+  const alvo = $("pagina-" + nome);
+  if (alvo) {
+    alvo.classList.remove("veio-da-direita", "veio-da-esquerda");
+    if (direcaoDaTroca) {
+      const classe = direcaoDaTroca === "direita" ? "veio-da-direita" : "veio-da-esquerda";
+      alvo.classList.add(classe);
+      alvo.addEventListener("animationend", () => alvo.classList.remove(classe), { once: true });
+    }
+  }
+  direcaoDaTroca = null;
   if (!semHistorico) {
     const estado = { pagina: nome };
     if (!history.state?.pagina) history.replaceState(estado, "");
@@ -128,17 +140,6 @@ function mostrarPagina(nome, semHistorico) {
     const navBtn = $("nav-" + p);
     if (navBtn) navBtn.classList.toggle("nav-ativo", p === nome);
   });
-  if (direcaoDaTroca) {
-    const pag = $("pagina-" + nome);
-    const classe = direcaoDaTroca === "direita" ? "veio-da-direita" : "veio-da-esquerda";
-    direcaoDaTroca = null;
-    if (pag) {
-      pag.classList.remove("veio-da-direita", "veio-da-esquerda");
-      void pag.offsetWidth;
-      pag.classList.add(classe);
-      setTimeout(() => pag.classList.remove(classe), 300);
-    }
-  }
   document.title = `${TITULOS[nome] || "Início"} · Vai ter federal, sim!`;
   fecharMenuPerfil();
   rolarPraCima();
@@ -218,14 +219,24 @@ function ligarGestos() {
   }, { passive: true });
 
   const soltar = (e) => {
-    const pag = $("pagina-" + paginaAtiva());
-    if (pag) { pag.classList.remove("arrastando"); pag.style.transform = ""; }
-    if (!gesto || !gesto.lateral) { gesto = null; return; }
+    const anterior = $("pagina-" + paginaAtiva());
+    const limpar = () => {
+      if (!anterior) return;
+      anterior.classList.remove("arrastando");
+      anterior.style.transform = "";
+    };
+    if (!gesto || !gesto.lateral) { limpar(); gesto = null; return; }
     const toque = e.changedTouches?.[0];
     const dx = toque ? toque.clientX - gesto.x : 0;
     const rapido = Date.now() - gesto.em < 500 && Math.abs(dx) > 40;
-    if (Math.abs(dx) > 70 || rapido) trocarAbaVizinha(dx < 0 ? 1 : -1);
     gesto = null;
+    if (Math.abs(dx) > 70 || rapido) {
+      trocarAbaVizinha(dx < 0 ? 1 : -1);  // a página nova já entra deslizando
+      limpar();                            // e só então a antiga volta ao lugar
+    } else {
+      // Não deu pra trocar: volta suave pro lugar em vez de saltar.
+      if (anterior) { anterior.classList.remove("arrastando"); anterior.style.transform = ""; }
+    }
   };
   area.addEventListener("touchend", soltar, { passive: true });
   area.addEventListener("touchcancel", soltar, { passive: true });
