@@ -22,6 +22,16 @@ export const CHAVE_RECAPTCHA = "6LcQDMgtAAAAAMdTg_nLKVPTo7g4ErJ5eFS4FOkk";
 // Modelos, do preferido pro reserva (se um sair do ar, tenta o próximo).
 const MODELOS = ["gemini-3.8-flash", "gemini-3.5-flash-lite"];
 
+// O modelo pensa à vontade (é o que dá a qualidade da resposta): não mexemos
+// no "thinking". O que a gente controla é o desperdício — contexto e imagens.
+const PENSAMENTO_DUVIDA = null;
+const PENSAMENTO_REDACAO = null;
+let semPensamento = false;
+
+// Só as últimas mensagens voltam pro modelo: conversa comprida gasta cota à toa
+// sem melhorar a resposta da pergunta atual.
+const MSGS_DE_CONTEXTO = 12;
+
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
@@ -111,8 +121,15 @@ async function prepararIA() {
   return ai;
 }
 
-function modelo(nomeModelo, sistema, extras = {}) {
-  return ai.mod.getGenerativeModel(ai.inst, { model: nomeModelo, systemInstruction: sistema, ...extras });
+function modelo(nomeModelo, sistema, extras = {}, pensamento = null) {
+  const cfg = { ...(extras.generationConfig || {}) };
+  if (pensamento && !semPensamento) cfg.thinkingConfig = pensamento;
+  return ai.mod.getGenerativeModel(ai.inst, { model: nomeModelo, systemInstruction: sistema, ...extras, generationConfig: cfg });
+}
+
+// Alguns modelos não aceitam mexer no "pensar". Nesse caso, tenta de novo sem.
+function ehErroDePensamento(e) {
+  return /thinking|thought|budget|Unknown name|INVALID_ARGUMENT|not supported/i.test(String(e?.message || e));
 }
 
 // Tenta os modelos em ordem; só passa pro próximo se o erro for "modelo não existe".
@@ -123,10 +140,49 @@ async function comModelos(fn) {
       return await fn(nome);
     } catch (e) {
       ultimo = e;
-      if (!/not found|404|is not supported|unknown model|was not found/i.test(String(e?.message))) throw e;
+      // O modelo não aceitou o ajuste de "pensar": desliga e tenta de novo.
+      if (!semPensamento && ehErroDePensamento(e)) {
+        semPensamento = true;
+        chat = null;
+        try {
+          return await fn(nome);
+        } catch (e2) {
+          ultimo = e2;
+        }
+      }
+      const msg = String(ultimo?.message || "");
+      // Modelo inexistente OU cota estourada: tenta o próximo da lista (os
+      // limites do plano gratuito são contados por modelo).
+      const vaiPróximo = /not found|404|is not supported|unknown model|was not found/i.test(msg) ||
+        /429|quota|resource.?exhausted|rate.?limit/i.test(msg);
+      if (!vaiPróximo) throw ultimo;
+      if (/429|quota|resource.?exhausted/i.test(msg)) chat = null;
     }
   }
   throw ultimo;
+}
+
+// Tira do erro do Google o que interessa: qual limite estourou, qual o valor e
+// quanto tempo esperar. Assim dá pra saber se é o limite por minuto ou o do dia.
+function textoDeCota(m) {
+  const espera = m.match(/retryDelay"?\s*:\s*"?(\d+)s/i)?.[1] || m.match(/try again in\s+([\d.]+)\s*s/i)?.[1];
+  const limite = m.match(/limit:?\s*(\d+)/i)?.[1];
+  const porDia = /per ?day|PerDay|daily/i.test(m);
+  const porMinuto = /per ?minute|PerMinute/i.test(m);
+  const tokens = /token/i.test(m);
+  let texto;
+  if (porDia) {
+    texto = `A cota gratuita da IA de hoje acabou${limite ? ` (limite de ${limite} ${tokens ? "tokens" : "pedidos"} por dia neste modelo)` : ""}. Ela zera na virada do dia no fuso do Google, umas 4h ou 5h daqui.`;
+  } else if (porMinuto) {
+    texto = `Muitos pedidos em pouco tempo${limite ? ` (o plano gratuito deixa ${limite} por minuto)` : ""}.`;
+  } else {
+    texto = "O plano gratuito da IA recusou o pedido por excesso de uso.";
+  }
+  if (espera) texto += ` Tente de novo em ${Math.ceil(Number(espera))} segundos.`;
+  else if (!porDia) texto += " Espere cerca de 1 minuto e mande de novo.";
+  // O texto cru do Google fica visível em letra de código: ajuda a saber
+  // exatamente qual limite estourou.
+  return `${texto}\n\n\`${m.replace(/`/g, "'").slice(0, 280)}\``;
 }
 
 function mensagemDeErro(e) {
@@ -134,7 +190,7 @@ function mensagemDeErro(e) {
   if (m === "sem-chave") return "A IA ainda não foi ativada neste app. Veja o passo a passo acima.";
   if (/dynamically imported module|importing a module script failed/i.test(m)) return "Não consegui carregar a IA (sem internet?). Recarregue a página e tente de novo.";
   if (/app.?check|appcheck|attestation|recaptcha/i.test(m)) return "O App Check recusou o pedido. Confira se a chave do reCAPTCHA está certa e se o domínio vitoroliveirav63.github.io foi adicionado nela.";
-  if (/429|quota|resource.?exhausted|rate/i.test(m)) return "O limite gratuito da IA foi atingido por agora. Espere alguns minutos e tente de novo.";
+  if (/429|quota|resource.?exhausted|rate/i.test(m)) return textoDeCota(m);
   if (/api.?not.?enabled|has not been used|PERMISSION_DENIED|403/i.test(m)) return "A IA não está ligada no Firebase (AI Logic → Gemini Developer API). Veja o passo a passo.";
   if (/safety|blocked/i.test(m)) return "A IA não respondeu esse conteúdo por segurança. Tente reformular.";
   if (/network|fetch|failed to fetch/i.test(m)) return "Sem conexão com a IA. Confira a internet e tente de novo.";
@@ -498,7 +554,8 @@ function historicoParaOModelo() {
   return conversa
     .filter((m) => m.texto)
     .map((m) => ({ role: m.papel === "voce" ? "user" : "model", parts: [{ text: m.texto }] }))
-    .slice(0, -1); // a última mensagem é a que está sendo enviada agora
+    .slice(0, -1) // a última mensagem é a que está sendo enviada agora
+    .slice(-MSGS_DE_CONTEXTO);
 }
 
 async function renomearConversa(id) {
@@ -655,9 +712,9 @@ async function enviarDuvida(e) {
     imagens.forEach((i) => partes.push(i.parte));
 
     const resultado = await comModelos(async (nome) => {
-      if (!chat || chat.modelo !== nome) {
-        const m = modelo(nome, SISTEMA_DUVIDAS, { generationConfig: { temperature: 0.3 } });
-        chat = { modelo: nome, sessao: m.startChat({ history: historicoParaOModelo() }) };
+      if (!chat || chat.modelo !== nome || chat.semPensamento !== semPensamento) {
+        const m = modelo(nome, SISTEMA_DUVIDAS, { generationConfig: { temperature: 0.3 } }, PENSAMENTO_DUVIDA);
+        chat = { modelo: nome, semPensamento, sessao: m.startChat({ history: historicoParaOModelo() }) };
       }
       const stream = await chat.sessao.sendMessageStream(partes);
       resposta.carregando = false;
@@ -805,7 +862,7 @@ async function corrigirRedacao(e) {
     const bruto = await comModelos(async (nome) => {
       const m = modelo(nome, SISTEMA_REDACAO, {
         generationConfig: { temperature: 0.2, responseMimeType: "application/json", responseSchema: esquemaRedacao() },
-      });
+      }, PENSAMENTO_REDACAO);
       const r = await m.generateContent(partes);
       return r.response.text();
     });
