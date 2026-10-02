@@ -20,7 +20,10 @@ import {
 export const CHAVE_RECAPTCHA = "6LcQDMgtAAAAAMdTg_nLKVPTo7g4ErJ5eFS4FOkk";
 
 // Modelos, do preferido pro reserva (se um sair do ar, tenta o próximo).
-const MODELOS = ["gemini-3.8-flash", "gemini-3.5-flash-lite"];
+// Ordem de preferência. Cada modelo tem a SUA cota no plano gratuito: quando um
+// estoura, o app desce pro próximo sozinho em vez de falhar.
+const MODELOS = ["gemini-3.8-flash", "gemini-3.5-flash", "gemini-3.5-flash-lite"];
+const LEMBRAR_MODELO = "ia-modelo-que-funcionou";
 
 // O modelo pensa à vontade (é o que dá a qualidade da resposta): não mexemos
 // no "thinking". O que a gente controla é o desperdício — contexto e imagens.
@@ -129,34 +132,75 @@ function modelo(nomeModelo, sistema, extras = {}, pensamento = null) {
 
 // Alguns modelos não aceitam mexer no "pensar". Nesse caso, tenta de novo sem.
 function ehErroDePensamento(e) {
-  return /thinking|thought|budget|Unknown name|INVALID_ARGUMENT|not supported/i.test(String(e?.message || e));
+  return /thinking|thought|budget|Unknown name/i.test(String(e?.message || e));
 }
 
-// Tenta os modelos em ordem; só passa pro próximo se o erro for "modelo não existe".
-async function comModelos(fn) {
+// Cuidado: "generate" contém "rate". Sem as bordas, QUALQUER erro de
+// generateContent virava "limite atingido" — foi o que acontecia antes.
+function ehCota(m) {
+  return /\b429\b|RESOURCE_EXHAUSTED|\bquota\b|rate[ _-]?limit|too many requests/i.test(String(m || ""));
+}
+
+function ehModeloInexistente(m) {
+  return /not found|NOT_FOUND|\b404\b|is not supported for|unknown model|was not found/i.test(String(m || ""));
+}
+
+function esperar(ms) {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+// Quantos segundos o próprio Google pede pra esperar (quando ele diz).
+function segundosDeEspera(m) {
+  const s = String(m).match(/retryDelay"?\s*:\s*"?(\d+(?:\.\d+)?)s/i)?.[1] ||
+    String(m).match(/try again in\s+([\d.]+)\s*s/i)?.[1];
+  return s ? Math.ceil(Number(s)) : null;
+}
+
+// Ordem dos modelos, começando pelo último que funcionou nesta máquina.
+function ordemDosModelos() {
+  let preferido = null;
+  try {
+    preferido = localStorage.getItem(LEMBRAR_MODELO);
+  } catch { /* navegador sem storage: segue a ordem padrão */ }
+  if (!preferido || !MODELOS.includes(preferido)) return MODELOS;
+  return [preferido, ...MODELOS.filter((m) => m !== preferido)];
+}
+
+// Tenta os modelos em ordem. Passa pro próximo quando o modelo não existe ou
+// quando a cota DELE acabou; se o Google pedir poucos segundos de espera, o app
+// espera e tenta de novo sozinho, sem mostrar erro.
+async function comModelos(fn, avisar) {
   let ultimo;
-  for (const nome of MODELOS) {
-    try {
-      return await fn(nome);
-    } catch (e) {
-      ultimo = e;
-      // O modelo não aceitou o ajuste de "pensar": desliga e tenta de novo.
-      if (!semPensamento && ehErroDePensamento(e)) {
-        semPensamento = true;
-        chat = null;
-        try {
-          return await fn(nome);
-        } catch (e2) {
-          ultimo = e2;
+  for (const nome of ordemDosModelos()) {
+    for (let tentativa = 0; tentativa < 2; tentativa++) {
+      try {
+        const r = await fn(nome);
+        try { localStorage.setItem(LEMBRAR_MODELO, nome); } catch { /* sem storage */ }
+        return r;
+      } catch (e) {
+        ultimo = e;
+        const msg = String(e?.message || e);
+
+        // O modelo não aceitou o ajuste de "pensar": desliga e repete.
+        if (!semPensamento && ehErroDePensamento(e)) {
+          semPensamento = true;
+          chat = null;
+          continue;
         }
+
+        // Limite por minuto com espera curta: aguarda e repete no mesmo modelo.
+        const espera = ehCota(msg) ? segundosDeEspera(msg) : null;
+        if (espera !== null && espera <= 30 && tentativa === 0) {
+          chat = null;
+          if (avisar) avisar(`Limite por minuto atingido. Tentando de novo em ${espera}s…`);
+          await esperar((espera + 1) * 1000);
+          continue;
+        }
+
+        if (ehCota(msg)) chat = null;
+        if (ehCota(msg) || ehModeloInexistente(msg)) break; // tenta o próximo modelo
+        throw e;
       }
-      const msg = String(ultimo?.message || "");
-      // Modelo inexistente OU cota estourada: tenta o próximo da lista (os
-      // limites do plano gratuito são contados por modelo).
-      const vaiPróximo = /not found|404|is not supported|unknown model|was not found/i.test(msg) ||
-        /429|quota|resource.?exhausted|rate.?limit/i.test(msg);
-      if (!vaiPróximo) throw ultimo;
-      if (/429|quota|resource.?exhausted/i.test(msg)) chat = null;
     }
   }
   throw ultimo;
@@ -176,7 +220,7 @@ function textoDeCota(m) {
   } else if (porMinuto) {
     texto = `Muitos pedidos em pouco tempo${limite ? ` (o plano gratuito deixa ${limite} por minuto)` : ""}.`;
   } else {
-    texto = "O plano gratuito da IA recusou o pedido por excesso de uso.";
+    texto = "Todos os modelos gratuitos estão sem cota neste momento.";
   }
   if (espera) texto += ` Tente de novo em ${Math.ceil(Number(espera))} segundos.`;
   else if (!porDia) texto += " Espere cerca de 1 minuto e mande de novo.";
@@ -190,11 +234,11 @@ function mensagemDeErro(e) {
   if (m === "sem-chave") return "A IA ainda não foi ativada neste app. Veja o passo a passo acima.";
   if (/dynamically imported module|importing a module script failed/i.test(m)) return "Não consegui carregar a IA (sem internet?). Recarregue a página e tente de novo.";
   if (/app.?check|appcheck|attestation|recaptcha/i.test(m)) return "O App Check recusou o pedido. Confira se a chave do reCAPTCHA está certa e se o domínio vitoroliveirav63.github.io foi adicionado nela.";
-  if (/429|quota|resource.?exhausted|rate/i.test(m)) return textoDeCota(m);
+  if (ehCota(m)) return textoDeCota(m);
   if (/api.?not.?enabled|has not been used|PERMISSION_DENIED|403/i.test(m)) return "A IA não está ligada no Firebase (AI Logic → Gemini Developer API). Veja o passo a passo.";
   if (/safety|blocked/i.test(m)) return "A IA não respondeu esse conteúdo por segurança. Tente reformular.";
   if (/network|fetch|failed to fetch/i.test(m)) return "Sem conexão com a IA. Confira a internet e tente de novo.";
-  return `A IA não conseguiu responder agora (${m.slice(0, 160)}).`;
+  return `A IA não conseguiu responder agora.\n\n\`${m.replace(/`/g, "'").slice(0, 280)}\``;
 }
 
 // ---------------------------------------------------------------------------
@@ -723,6 +767,10 @@ async function enviarDuvida(e) {
         renderizarConversa();
       }
       return (await stream.response).text();
+    }, (aviso) => {
+      resposta.carregando = false;
+      resposta.texto = `⏳ ${aviso}`;
+      renderizarConversa();
     });
     resposta.texto = resultado || resposta.texto;
     resposta.carregando = false;
@@ -865,6 +913,9 @@ async function corrigirRedacao(e) {
       }, PENSAMENTO_REDACAO);
       const r = await m.generateContent(partes);
       return r.response.text();
+    }, (aviso) => {
+      status.className = "status-pdf lendo";
+      status.textContent = aviso;
     });
     const correcao = normalizarCorrecao(JSON.parse(bruto));
     status.className = "status-pdf ok";
