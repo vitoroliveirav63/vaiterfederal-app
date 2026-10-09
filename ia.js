@@ -169,11 +169,14 @@ function ordemDosModelos() {
 // Tenta os modelos em ordem. Passa pro próximo quando o modelo não existe ou
 // quando a cota DELE acabou; se o Google pedir poucos segundos de espera, o app
 // espera e tenta de novo sozinho, sem mostrar erro.
+let ultimoModeloTentado = "";
+
 async function comModelos(fn, avisar) {
   let ultimo;
   for (const nome of ordemDosModelos()) {
     for (let tentativa = 0; tentativa < 2; tentativa++) {
       try {
+        ultimoModeloTentado = nome;
         const r = await fn(nome);
         try { localStorage.setItem(LEMBRAR_MODELO, nome); } catch { /* sem storage */ }
         return r;
@@ -238,7 +241,7 @@ function mensagemDeErro(e) {
   if (/api.?not.?enabled|has not been used|PERMISSION_DENIED|403/i.test(m)) return "A IA não está ligada no Firebase (AI Logic → Gemini Developer API). Veja o passo a passo.";
   if (/safety|blocked/i.test(m)) return "A IA não respondeu esse conteúdo por segurança. Tente reformular.";
   if (/network|fetch|failed to fetch/i.test(m)) return "Sem conexão com a IA. Confira a internet e tente de novo.";
-  return `A IA não conseguiu responder agora.\n\n\`${m.replace(/`/g, "'").slice(0, 280)}\``;
+  return `A IA não conseguiu responder agora.\n\n\`${(ultimoModeloTentado ? `[${ultimoModeloTentado}] ` : "") + m.replace(/`/g, "'").slice(0, 280)}\``;
 }
 
 // ---------------------------------------------------------------------------
