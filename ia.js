@@ -756,9 +756,10 @@ async function enviarDuvida(e) {
     imagens.forEach((i) => partes.push(i.parte));
 
     const resultado = await comModelos(async (nome) => {
-      if (!chat || chat.modelo !== nome || chat.semPensamento !== semPensamento) {
-        const m = modelo(nome, SISTEMA_DUVIDAS, { generationConfig: { temperature: 0.3 } }, PENSAMENTO_DUVIDA);
-        chat = { modelo: nome, semPensamento, sessao: m.startChat({ history: historicoParaOModelo() }) };
+      const assinaturaRedacoes = contextoDasRedacoes().length + ":" + (historicoRedacoes[0]?.id || "");
+      if (!chat || chat.modelo !== nome || chat.semPensamento !== semPensamento || chat.redacoes !== assinaturaRedacoes) {
+        const m = modelo(nome, SISTEMA_DUVIDAS + contextoDasRedacoes(), { generationConfig: { temperature: 0.3 } }, PENSAMENTO_DUVIDA);
+        chat = { modelo: nome, semPensamento, redacoes: assinaturaRedacoes, sessao: m.startChat({ history: historicoParaOModelo() }) };
       }
       const stream = await chat.sessao.sendMessageStream(partes);
       resposta.carregando = false;
@@ -792,6 +793,70 @@ async function enviarDuvida(e) {
 // ---------------------------------------------------------------------------
 let imagensRedacao = [];
 let historicoRedacoes = [];
+
+// ---------------------------------------------------------------------------
+// O que a Student AI sabe sobre as redações já corrigidas aqui. Vai junto com
+// as instruções nas Dúvidas, pra ela responder "como subo minha C5?" olhando as
+// SUAS notas, e não no genérico.
+// ---------------------------------------------------------------------------
+const LIMITE_TEXTO_REDACAO = 1800;
+
+function correcaoDe(r) {
+  try {
+    return JSON.parse(r.correcao || "{}");
+  } catch {
+    return {};
+  }
+}
+
+function contextoDasRedacoes() {
+  if (!historicoRedacoes.length) return "";
+  const ultimas = historicoRedacoes.slice(0, 5); // já vêm da mais nova pra mais antiga
+  const media = Math.round(historicoRedacoes.reduce((t, r) => t + (r.total || 0), 0) / historicoRedacoes.length);
+
+  // Média por competência: mostra onde ele perde ponto de verdade.
+  const soma = [0, 0, 0, 0, 0];
+  const conta = [0, 0, 0, 0, 0];
+  historicoRedacoes.forEach((r) => (r.notas || []).forEach((n, i) => {
+    if (Number.isFinite(n)) { soma[i] += n; conta[i]++; }
+  }));
+  const medias = soma.map((v, i) => (conta[i] ? Math.round(v / conta[i]) : null));
+  const porComp = medias.map((m, i) => `C${i + 1} (${NOMES_COMP[i]}): ${m === null ? "sem dados" : m}`).join(" · ");
+  const maisFraca = medias.reduce((pior, m, i) => (m !== null && (pior === null || m < medias[pior]) ? i : pior), null);
+
+  const fichas = ultimas.map((r, pos) => {
+    const c = correcaoDe(r);
+    const quando = r.criadoEm?.toDate ? r.criadoEm.toDate().toLocaleDateString("pt-BR") : "";
+    const notas = (r.notas || []).map((n, i) => `C${i + 1} ${n}`).join(", ");
+    const problemas = (c.competencias || [])
+      .flatMap((x) => (x.problemas || []).slice(0, 2).map((pr) => `C${x.numero}: ${pr.problema}`))
+      .slice(0, 6);
+    return [
+      `[${pos + 1}] ${quando} — tema: ${r.tema || c.tema_identificado || "não informado"} — total ${r.total || 0}/1000 (${notas})`,
+      c.resumo ? `   resumo da correção: ${c.resumo}` : "",
+      problemas.length ? `   problemas apontados: ${problemas.join("; ")}` : "",
+      (c.proximos_passos || []).length ? `   próximos passos: ${c.proximos_passos.slice(0, 4).join("; ")}` : "",
+    ].filter(Boolean).join("\n");
+  }).join("\n");
+
+  const ultima = ultimas[0];
+  const textoUltima = String(ultima?.texto || "").trim();
+  const trecho = textoUltima
+    ? `\n\nTEXTO DA REDAÇÃO MAIS RECENTE (use quando ele pedir pra reescrever ou comentar trechos):\n"""${textoUltima.slice(0, LIMITE_TEXTO_REDACAO)}${textoUltima.length > LIMITE_TEXTO_REDACAO ? "…" : ""}"""`
+    : "";
+
+  return `
+
+CONTEXTO DO ESTUDANTE — redações dele já corrigidas neste app (${historicoRedacoes.length} no total, média ${media}/1000):
+Média por competência: ${porComp}.
+${maisFraca !== null ? `Competência mais fraca: C${maisFraca + 1} (${NOMES_COMP[maisFraca]}).` : ""}
+${fichas}${trecho}
+
+Como usar esse contexto:
+- Quando ele perguntar da redação dele, da nota, de uma competência ou de como melhorar, responda olhando ESSES dados, citando a nota e o problema real já apontado.
+- Em dúvidas de conteúdo que não têm a ver com redação, ignore este bloco e não cite notas.
+- Nunca invente redação, nota ou trecho que não esteja aqui. Se ele falar de uma redação que não aparece acima, diga que ela não foi corrigida no app.`;
+}
 const NOMES_COMP = ["Escrita formal", "Tema e tipo textual", "Argumentação", "Coesão", "Proposta de intervenção"];
 
 function esquemaRedacao() {
